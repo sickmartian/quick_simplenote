@@ -36,6 +36,8 @@ def sort_notes(a_note, b_note):
 		return cmp(date_a, date_b)
 
 def show_message(message):
+	if not message:
+		message = ''
 	for window in sublime.windows():
 			for currentView in window.views():
 				currentView.set_status('simply_sublime', message)
@@ -82,7 +84,7 @@ class NoteUpdater(Thread):
 class HandleNoteViewCommand(sublime_plugin.EventListener):
 
 	def remove_status(self):
-		show_message('')
+		show_message(None)
 
 	def check_updater(self):
 		if self.progress >= 3:
@@ -132,6 +134,9 @@ class ShowSimplySublimeNotesCommand(sublime_plugin.ApplicationCommand):
 		sublime.active_window().open_file(filepath)
 
 	def run(self):
+		if not started:
+			start()
+
 		i = 0
 		keys = []
 		for note in	notes:
@@ -143,7 +148,7 @@ class ShowSimplySublimeNotesCommand(sublime_plugin.ApplicationCommand):
 class StartSimplySublimeCommand(sublime_plugin.ApplicationCommand):
 
 	def remove_status(self):
-		show_message('')
+		show_message(None)
 
 	def check_download(self):
 		if self.progress >= 3:
@@ -173,6 +178,11 @@ class StartSimplySublimeCommand(sublime_plugin.ApplicationCommand):
 		self.download_thread.start()
 		self.check_download()
 
+def start():
+	sublime.run_command('start_simply_sublime');
+	started = True
+
+started = False
 notes = []
 package_path = path.join(sublime.packages_path(), "simplysublime")
 temp_path = path.join(package_path, "temp")
@@ -183,4 +193,4 @@ simplenote_instance = Simplenote(settings.get('username'), settings.get('passwor
 
 if settings.get('autostart'):
 	print('Simply Sublime: Autostarting')
-	sublime.active_window().run_command('start_simply_sublime');
+	sublime.set_timeout(start, 2000) # I know...
