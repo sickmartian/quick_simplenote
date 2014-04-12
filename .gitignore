@@ -1,3 +1,6 @@
+simplysublime.sublime-settings
+temp/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -18,7 +21,6 @@ lib64/
 parts/
 sdist/
 var/
-temp/
 *.egg-info/
 .installed.cfg
 *.egg
