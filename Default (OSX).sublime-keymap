@@ -1,0 +1,5 @@
+[
+    { 
+        "keys": ["super+shift+s", "super+shift+s"], "command": "show_simply_sublime_notes"
+    }
+]
