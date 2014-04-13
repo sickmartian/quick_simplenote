@@ -46,12 +46,15 @@ def remove_status():
 	show_message(None)
 
 def open_note(note):
-	filepath = path.join(temp_path, note['key'])
+	filepath = get_path_for_note(note)
 	if not path.exists(filepath):
 		f = open(filepath, 'w')
 		f.write(note['content'])
 		f.close()
 	sublime.active_window().open_file(filepath)
+
+def get_path_for_note(note):
+	return path.join(temp_path, note['key'])
 
 def get_note_from_path(view_filepath):
 	note = None
@@ -60,6 +63,11 @@ def get_note_from_path(view_filepath):
 		note = [note for note in notes if note['key'] == note_key][0]
 	
 	return note
+
+def close_view(view):
+	view.set_scratch(True)
+	view.window().focus_view(view)
+	view.window().run_command("close_file")
 
 class NoteCreator(Thread):
 	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None):
@@ -244,6 +252,8 @@ class DeleteSimplySublimeNoteCommand(sublime_plugin.ApplicationCommand):
 		else:
 			global notes
 			notes.remove(self.note)
+			remove(get_path_for_note(self.note))
+			close_view(self.note_view)
 			show_message('Simply Sublime: Done')
 			sublime.set_timeout(remove_status, 2000)
 
