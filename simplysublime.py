@@ -49,7 +49,11 @@ def open_note(note):
 	filepath = get_path_for_note(note)
 	if not path.exists(filepath):
 		f = open(filepath, 'w')
-		f.write(note['content'])
+		try:
+			content = note['content']
+			f.write(content)
+		except KeyError:
+			pass
 		f.close()
 	sublime.active_window().open_file(filepath)
 
@@ -74,7 +78,8 @@ class NoteCreator(Thread):
 		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
 
 	def run(self):
-		self.note = simplenote_instance.add_note('');
+		print('Simply Sublime: Creating note')
+		self.note = simplenote_instance.add_note('')[0];
 
 	def join(self):
 		Thread.join(self)
