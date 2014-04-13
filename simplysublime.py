@@ -42,6 +42,36 @@ def show_message(message):
 			for currentView in window.views():
 				currentView.set_status('simply_sublime', message)
 
+def remove_status():
+	show_message(None)
+
+def open_note(note):
+	filepath = path.join(temp_path, note['key'])
+	if not path.exists(filepath):
+		f = open(filepath, 'w')
+		f.write(note['content'])
+		f.close()
+	sublime.active_window().open_file(filepath)
+
+def get_note_from_path(view_filepath):
+	note = None
+	if path.dirname(view_filepath) == temp_path:
+		note_key = path.split(view_filepath)[1]
+		note = [note for note in notes if note['key'] == note_key][0]
+	
+	return note
+
+class NoteCreator(Thread):
+	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None):
+		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
+
+	def run(self):
+		self.note = simplenote_instance.add_note('');
+
+	def join(self):
+		Thread.join(self)
+		return self.note
+
 class NoteDownloader(Thread):
 	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None):
 		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
@@ -58,7 +88,7 @@ class NoteDownloader(Thread):
 		import weakref
 		self._children = weakref.WeakKeyDictionary()
 
-		pool = ThreadPool(processes=len(self.note_list))
+		pool = ThreadPool(processes=2)
 		results = []
 		for current_note in self.note_list:
 			async_result = pool.apply_async(self.download_note, (current_note['key'],))
@@ -72,6 +102,15 @@ class NoteDownloader(Thread):
 		Thread.join(self)
 		return self.notes
 
+class NoteDeleter(Thread):
+	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, note=None):
+		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
+		self.note = note
+
+	def run(self):
+		print('Simply Sublime: Deleting %s' % self.note['key'])
+		simplenote_instance.delete_note(self.note['key'])
+
 class NoteUpdater(Thread):
 	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, note=None):
 		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
@@ -83,9 +122,6 @@ class NoteUpdater(Thread):
 
 class HandleNoteViewCommand(sublime_plugin.EventListener):
 
-	def remove_status(self):
-		show_message(None)
-
 	def check_updater(self):
 		if self.progress >= 3:
 			self.progress = 0
@@ -96,15 +132,14 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
 			sublime.set_timeout(self.check_updater, 1000)
 		else:
 			show_message('Simply Sublime: Done')
-			sublime.set_timeout(self.remove_status, 2000)
+			sublime.set_timeout(remove_status, 2000)
 
 	def on_post_save(self, view):
 		self.progress = -1
 
 		view_filepath = view.file_name()
-		if path.dirname(view_filepath) == temp_path:
-			note_key = path.split(view_filepath)[1]
-			note = [note for note in notes if note['key'] == note_key][0]
+		note = get_note_from_path(view_filepath)
+		if note:
 			note['content'] = view.substr(sublime.Region(0, view.size())).encode('utf-8')
 			self.updater = NoteUpdater(note=note)
 			self.updater.start()
@@ -126,16 +161,12 @@ class ShowSimplySublimeNotesCommand(sublime_plugin.ApplicationCommand):
 			return
 
 		selected_note = notes[selected_index]
-		filepath = path.join(temp_path, selected_note['key'])
-		if not path.exists(filepath):
-			f = open(filepath, 'w')
-			f.write(selected_note['content'])
-			f.close()
-		sublime.active_window().open_file(filepath)
+		open_note(selected_note)
 
 	def run(self):
 		if not started:
-			start()
+			if not start():
+				return
 
 		i = 0
 		keys = []
@@ -146,9 +177,6 @@ class ShowSimplySublimeNotesCommand(sublime_plugin.ApplicationCommand):
 		sublime.active_window().show_quick_panel(keys, self.handle_selected)
 
 class StartSimplySublimeCommand(sublime_plugin.ApplicationCommand):
-
-	def remove_status(self):
-		show_message(None)
 
 	def check_download(self):
 		if self.progress >= 3:
@@ -162,7 +190,7 @@ class StartSimplySublimeCommand(sublime_plugin.ApplicationCommand):
 			notes = self.download_thread.join()
 			notes.sort(key=cmp_to_key(sort_notes), reverse=True)
 			show_message('Simply Sublime: Done')
-			sublime.set_timeout(self.remove_status, 2000)
+			sublime.set_timeout(remove_status, 2000)
 
 	def run(self):
 		self.progress = -1
@@ -178,18 +206,83 @@ class StartSimplySublimeCommand(sublime_plugin.ApplicationCommand):
 		self.download_thread.start()
 		self.check_download()
 
-def start():
-	sublime.run_command('start_simply_sublime');
-	started = True
+class CreateSimplySublimeNoteCommand(sublime_plugin.ApplicationCommand):
 
+	def check_creation(self):
+		if self.progress >= 3:
+			self.progress = 0
+		self.progress += 1
+		if self.creation_thread.is_alive():
+			show_message('Simply Sublime: Creating note%s' % ( '.' * self.progress) )
+			sublime.set_timeout(self.check_creation, 1000)
+		else:
+			global notes
+			note = self.creation_thread.join()
+			notes.append(note)
+			notes.sort(key=cmp_to_key(sort_notes), reverse=True)
+			show_message('Simply Sublime: Done')
+			sublime.set_timeout(remove_status, 2000)
+			open_note(note)
+
+	def run(self):
+		self.progress = -1
+
+		show_message('Simply Sublime: Creating note')
+		self.creation_thread = NoteCreator()
+		self.creation_thread.start()
+		self.check_creation()
+
+class DeleteSimplySublimeNoteCommand(sublime_plugin.ApplicationCommand):
+
+	def check_deletion(self):
+		if self.progress >= 3:
+			self.progress = 0
+		self.progress += 1
+		if self.deletion_thread.is_alive():
+			show_message('Simply Sublime: Deleting note%s' % ( '.' * self.progress) )
+			sublime.set_timeout(self.check_deletion, 1000)
+		else:
+			global notes
+			notes.remove(self.note)
+			show_message('Simply Sublime: Done')
+			sublime.set_timeout(remove_status, 2000)
+
+	def run(self):
+		self.progress = -1
+		self.note_view = sublime.active_window().active_view()
+		self.note = get_note_from_path(self.note_view.file_name())
+		if self.note:
+			show_message('Simply Sublime: Deleting note')
+			self.deletion_thread = NoteDeleter(note=self.note)
+			self.deletion_thread.start()
+			self.check_deletion()
+
+def start():
+	global started, simplenote_instance
+
+	username = settings.get('username')
+	password = settings.get('password')
+
+	if (username and password):
+		simplenote_instance = Simplenote(username, password)
+		sublime.run_command('start_simply_sublime');
+		started = True
+	else:
+		filepath = path.join(package_path, 'simplysublime.sublime-settings')
+		sublime.active_window().open_file(filepath)
+		show_message('Simply Sublime: Please configure username/password')
+		sublime.set_timeout(remove_status, 2000)
+		started = False
+
+	return started
+
+simplenote_instance = None
 started = False
 notes = []
 package_path = path.join(sublime.packages_path(), "simplysublime")
 temp_path = path.join(package_path, "temp")
 
 settings = sublime.load_settings('simplysublime.sublime-settings')
-
-simplenote_instance = Simplenote(settings.get('username'), settings.get('password'))
 
 if settings.get('autostart'):
 	print('Simply Sublime: Autostarting')
