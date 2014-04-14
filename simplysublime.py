@@ -181,11 +181,18 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
 class ShowSimplySublimeNotesCommand(sublime_plugin.ApplicationCommand):
 
 	def get_note_name(self, note):
-		index = note['content'].find('\n');
+		try:
+			content = note['content']
+		except Exception, e:
+			return 'untitled'
+		index = content.find('\n');
 		if index > -1:
-			title = note['content'][:index]
+			title = content[:index]
 		else:
-			title = note['content']
+			if content:
+				title = content
+			else:
+				title = 'untitled'
 		title = title.decode('utf-8')
 		return title
 
