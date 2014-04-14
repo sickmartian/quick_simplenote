@@ -5,6 +5,7 @@ from threading import Thread
 from multiprocessing.pool import ThreadPool
 from os import path, makedirs, remove, listdir
 from datetime import datetime
+import time
 
 def cmp_to_key(mycmp):
     'Convert a cmp= function into a key= function'
@@ -131,11 +132,18 @@ class NoteUpdater(Thread):
 
 	def run(self):
 		print('Simply Sublime: Updating %s' % self.note['key'])
-		simplenote_instance.update_note(self.note)
+		self.note['modifydate'] = time.time()
+		self.note = simplenote_instance.update_note(self.note)[0]
+
+	def join(self):
+		Thread.join(self)
+		return self.note
 
 class HandleNoteViewCommand(sublime_plugin.EventListener):
 
 	def check_updater(self):
+		global notes
+
 		if self.progress >= 3:
 			self.progress = 0
 		self.progress += 1
@@ -144,6 +152,18 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
 			show_message('Simply Sublime: Uploading note%s' % ( '.' * self.progress) )
 			sublime.set_timeout(self.check_updater, 1000)
 		else:
+			# We get all data back except the content of the note
+			# we need to merge it ourselves
+			modified_note_resume = self.updater.join()
+			print(modified_note_resume)
+			for index, note in enumerate(notes):
+				if note['key'] == modified_note_resume['key']:
+					modified_note_resume['content'] = note['content']
+					notes[index] = modified_note_resume
+					print(notes[index])
+					break
+			notes.sort(key=cmp_to_key(sort_notes), reverse=True)
+
 			show_message('Simply Sublime: Done')
 			sublime.set_timeout(remove_status, 2000)
 
