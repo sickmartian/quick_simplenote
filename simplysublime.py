@@ -122,7 +122,7 @@ class NoteDeleter(Thread):
 
 	def run(self):
 		print('Simply Sublime: Deleting %s' % self.note['key'])
-		simplenote_instance.delete_note(self.note['key'])
+		simplenote_instance.trash_note(self.note['key'])
 
 class NoteUpdater(Thread):
 	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, note=None):
