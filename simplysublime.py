@@ -163,12 +163,10 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
 			# We get all data back except the content of the note
 			# we need to merge it ourselves
 			modified_note_resume = self.updater.join()
-			print(modified_note_resume)
 			for index, note in enumerate(notes):
 				if note['key'] == modified_note_resume['key']:
 					modified_note_resume['content'] = note['content']
 					notes[index] = modified_note_resume
-					print(notes[index])
 					break
 			notes.sort(key=cmp_to_key(sort_notes), reverse=True)
 
