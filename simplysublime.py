@@ -1,8 +1,7 @@
 import sublime, sublime_plugin
 from simplenote import Simplenote
 
-from threading import Thread
-from multiprocessing.pool import ThreadPool
+from threading import Thread, Semaphore
 from os import path, makedirs, remove, listdir
 from datetime import datetime
 import time
@@ -87,30 +86,39 @@ class NoteCreator(Thread):
 		return self.note
 
 class NoteDownloader(Thread):
+	def __init__(self, note_id, semaphore, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None):
+		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
+		self.note_id = note_id
+		self.semaphore = semaphore
+	
+	def run(self):
+		self.semaphore.acquire()
+		print('Simply Sublime: Downloading %s' % self.note_id)
+		self.note = simplenote_instance.get_note(self.note_id)[0]
+		self.semaphore.release()
+
+	def join(self):
+		Thread.join(self)
+		return self.note
+		
+
+class MultipleNoteDownloader(Thread):
 	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None):
 		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
 		self.notes = []
 
-	def download_note(self, note_id):
-		print('Simply Sublime: Downloading %s' % note_id)
-		note = simplenote_instance.get_note(note_id)[0]
-		return note
-
 	def run(self):
+
 		self.note_list = [note for note in simplenote_instance.get_note_list()[0] if note['deleted'] == 0]
 
-		import weakref
-		self._children = weakref.WeakKeyDictionary()
-
-		pool = ThreadPool(processes=2)
-		results = []
+		threads = []
+		sem = Semaphore(3)
 		for current_note in self.note_list:
-			async_result = pool.apply_async(self.download_note, (current_note['key'],))
-			results.append(async_result)
+			new_thread = NoteDownloader(current_note['key'], sem)
+			threads.append(new_thread)
+			new_thread.start()
 
-		pool.close()
-		pool.join()
-		self.notes = [result.get() for result in results]
+		self.notes = [thread.join() for thread in threads]
 
 	def join(self):
 		Thread.join(self)
@@ -242,7 +250,7 @@ class StartSimplySublimeCommand(sublime_plugin.ApplicationCommand):
 			remove(path.join(temp_path, f))
 
 		show_message('Simply Sublime: Downloading notes')
-		self.download_thread = NoteDownloader()
+		self.download_thread = MultipleNoteDownloader()
 		self.download_thread.start()
 		self.check_download()
 
