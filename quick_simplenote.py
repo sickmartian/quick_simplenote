@@ -40,7 +40,7 @@ def show_message(message):
 		message = ''
 	for window in sublime.windows():
 			for currentView in window.views():
-				currentView.set_status('simply_sublime', message)
+				currentView.set_status('quick_simplenote', message)
 
 def remove_status():
 	show_message(None)
@@ -78,7 +78,7 @@ class NoteCreator(Thread):
 		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
 
 	def run(self):
-		print('Simply Sublime: Creating note')
+		print('QuickSimplenote: Creating note')
 		self.note = simplenote_instance.add_note('')[0];
 
 	def join(self):
@@ -93,7 +93,7 @@ class NoteDownloader(Thread):
 	
 	def run(self):
 		self.semaphore.acquire()
-		print('Simply Sublime: Downloading %s' % self.note_id)
+		print('QuickSimplenote: Downloading %s' % self.note_id)
 		self.note = simplenote_instance.get_note(self.note_id)[0]
 		self.semaphore.release()
 
@@ -130,7 +130,7 @@ class NoteDeleter(Thread):
 		self.note = note
 
 	def run(self):
-		print('Simply Sublime: Deleting %s' % self.note['key'])
+		print('QuickSimplenote: Deleting %s' % self.note['key'])
 		simplenote_instance.trash_note(self.note['key'])
 
 class NoteUpdater(Thread):
@@ -139,7 +139,7 @@ class NoteUpdater(Thread):
 		self.note = note
 
 	def run(self):
-		print('Simply Sublime: Updating %s' % self.note['key'])
+		print('QuickSimplenote: Updating %s' % self.note['key'])
 		self.note['modifydate'] = time.time()
 		self.note = simplenote_instance.update_note(self.note)[0]
 
@@ -157,7 +157,7 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
 		self.progress += 1
 
 		if self.updater.is_alive():
-			show_message('Simply Sublime: Uploading note%s' % ( '.' * self.progress) )
+			show_message('QuickSimplenote: Uploading note%s' % ( '.' * self.progress) )
 			sublime.set_timeout(self.check_updater, 1000)
 		else:
 			# We get all data back except the content of the note
@@ -170,7 +170,7 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
 					break
 			notes.sort(key=cmp_to_key(sort_notes), reverse=True)
 
-			show_message('Simply Sublime: Done')
+			show_message('QuickSimplenote: Done')
 			sublime.set_timeout(remove_status, 2000)
 
 	def on_post_save(self, view):
@@ -184,7 +184,7 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
 			self.updater.start()
 			sublime.set_timeout(self.check_updater, 1000)
 
-class ShowSimplySublimeNotesCommand(sublime_plugin.ApplicationCommand):
+class ShowQuickSimplenoteNotesCommand(sublime_plugin.ApplicationCommand):
 
 	def get_note_name(self, note):
 		try:
@@ -222,77 +222,77 @@ class ShowSimplySublimeNotesCommand(sublime_plugin.ApplicationCommand):
 			keys.append(title)
 		sublime.active_window().show_quick_panel(keys, self.handle_selected)
 
-class StartSimplySublimeCommand(sublime_plugin.ApplicationCommand):
+class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
 
 	def check_download(self):
 		if self.progress >= 3:
 			self.progress = 0
 		self.progress += 1
 		if self.download_thread.is_alive():
-			show_message('Simply Sublime: Downloading notes%s' % ( '.' * self.progress) )
+			show_message('QuickSimplenote: Downloading notes%s' % ( '.' * self.progress) )
 			sublime.set_timeout(self.check_download, 1000)
 		else:
 			global notes
 			notes = self.download_thread.join()
 			notes.sort(key=cmp_to_key(sort_notes), reverse=True)
-			show_message('Simply Sublime: Done')
+			show_message('QuickSimplenote: Done')
 			sublime.set_timeout(remove_status, 2000)
 
 	def run(self):
 		self.progress = -1
 
-		show_message('Simply Sublime: Setting up')
+		show_message('QuickSimplenote: Setting up')
 		if not path.exists(temp_path):
 			makedirs(temp_path)
 		for f in listdir(temp_path):
 			remove(path.join(temp_path, f))
 
-		show_message('Simply Sublime: Downloading notes')
+		show_message('QuickSimplenote: Downloading notes')
 		self.download_thread = MultipleNoteDownloader()
 		self.download_thread.start()
 		self.check_download()
 
-class CreateSimplySublimeNoteCommand(sublime_plugin.ApplicationCommand):
+class CreateQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
 
 	def check_creation(self):
 		if self.progress >= 3:
 			self.progress = 0
 		self.progress += 1
 		if self.creation_thread.is_alive():
-			show_message('Simply Sublime: Creating note%s' % ( '.' * self.progress) )
+			show_message('QuickSimplenote: Creating note%s' % ( '.' * self.progress) )
 			sublime.set_timeout(self.check_creation, 1000)
 		else:
 			global notes
 			note = self.creation_thread.join()
 			notes.append(note)
 			notes.sort(key=cmp_to_key(sort_notes), reverse=True)
-			show_message('Simply Sublime: Done')
+			show_message('QuickSimplenote: Done')
 			sublime.set_timeout(remove_status, 2000)
 			open_note(note)
 
 	def run(self):
 		self.progress = -1
 
-		show_message('Simply Sublime: Creating note')
+		show_message('QuickSimplenote: Creating note')
 		self.creation_thread = NoteCreator()
 		self.creation_thread.start()
 		self.check_creation()
 
-class DeleteSimplySublimeNoteCommand(sublime_plugin.ApplicationCommand):
+class DeleteQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
 
 	def check_deletion(self):
 		if self.progress >= 3:
 			self.progress = 0
 		self.progress += 1
 		if self.deletion_thread.is_alive():
-			show_message('Simply Sublime: Deleting note%s' % ( '.' * self.progress) )
+			show_message('QuickSimplenote: Deleting note%s' % ( '.' * self.progress) )
 			sublime.set_timeout(self.check_deletion, 1000)
 		else:
 			global notes
 			notes.remove(self.note)
 			remove(get_path_for_note(self.note))
 			close_view(self.note_view)
-			show_message('Simply Sublime: Done')
+			show_message('QuickSimplenote: Done')
 			sublime.set_timeout(remove_status, 2000)
 
 	def run(self):
@@ -300,7 +300,7 @@ class DeleteSimplySublimeNoteCommand(sublime_plugin.ApplicationCommand):
 		self.note_view = sublime.active_window().active_view()
 		self.note = get_note_from_path(self.note_view.file_name())
 		if self.note:
-			show_message('Simply Sublime: Deleting note')
+			show_message('QuickSimplenote: Deleting note')
 			self.deletion_thread = NoteDeleter(note=self.note)
 			self.deletion_thread.start()
 			self.check_deletion()
@@ -313,12 +313,12 @@ def start():
 
 	if (username and password):
 		simplenote_instance = Simplenote(username, password)
-		sublime.run_command('start_simply_sublime');
+		sublime.run_command('start_quick_simplenote');
 		started = True
 	else:
-		filepath = path.join(package_path, 'simplysublime.sublime-settings')
+		filepath = path.join(package_path, 'quick_simplenote.sublime-settings')
 		sublime.active_window().open_file(filepath)
-		show_message('Simply Sublime: Please configure username/password')
+		show_message('QuickSimplenote: Please configure username/password')
 		sublime.set_timeout(remove_status, 2000)
 		started = False
 
@@ -330,8 +330,8 @@ notes = []
 package_path = path.join(sublime.packages_path(), "simplysublime")
 temp_path = path.join(package_path, "temp")
 
-settings = sublime.load_settings('simplysublime.sublime-settings')
+settings = sublime.load_settings('quick_simplenote.sublime-settings')
 
 if settings.get('autostart'):
-	print('Simply Sublime: Autostarting')
+	print('QuickSimplenote: Autostarting')
 	sublime.set_timeout(start, 2000) # I know...

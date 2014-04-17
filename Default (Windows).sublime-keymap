@@ -1,11 +1,11 @@
 [
     { 
-        "keys": ["super+shift+s", "super+shift+s"], "command": "show_simply_sublime_notes"
+        "keys": ["super+shift+s", "super+shift+s"], "command": "show_quick_simplenote_notes"
     },
     { 
-        "keys": ["super+shift+s", "super+shift+n"], "command": "create_simply_sublime_note"
+        "keys": ["super+shift+s", "super+shift+n"], "command": "create_quick_simplenote_note"
     },
     { 
-        "keys": ["super+shift+s", "super+shift+d"], "command": "delete_simply_sublime_note"
+        "keys": ["super+shift+s", "super+shift+d"], "command": "delete_quick_simplenote_note"
     }
 ]
