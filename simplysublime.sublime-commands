@@ -1,0 +1,14 @@
+[
+  {
+    "command": "create_simply_sublime_note",
+    "caption": "Simply Sublime: New Note"
+  },
+  {
+    "command": "show_simply_sublime_notes",
+    "caption": "Simply Sublime: Open list"
+  },
+  {
+    "command": "delete_simply_sublime_note",
+    "caption": "Simply Sublime: Delete Current Note"
+  }
+]
