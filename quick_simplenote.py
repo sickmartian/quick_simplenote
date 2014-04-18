@@ -306,7 +306,7 @@ class DeleteQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
 			self.check_deletion()
 
 def start():
-	global started, simplenote_instance
+	global started, simplenote_instance, settings
 
 	username = settings.get('username')
 	password = settings.get('password')
@@ -316,6 +316,8 @@ def start():
 		sublime.run_command('start_quick_simplenote');
 		started = True
 	else:
+		print(username)
+		print(password)
 		filepath = path.join(package_path, 'quick_simplenote.sublime-settings')
 		sublime.active_window().open_file(filepath)
 		show_message('QuickSimplenote: Please configure username/password')
@@ -327,7 +329,7 @@ def start():
 simplenote_instance = None
 started = False
 notes = []
-package_path = path.join(sublime.packages_path(), "simplysublime")
+package_path = path.join(sublime.packages_path(), "quick_simplenote")
 temp_path = path.join(package_path, "temp")
 
 settings = sublime.load_settings('quick_simplenote.sublime-settings')
