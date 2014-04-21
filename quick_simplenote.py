@@ -40,7 +40,7 @@ def show_message(message):
 		message = ''
 	for window in sublime.windows():
 			for currentView in window.views():
-				currentView.set_status('quick_simplenote', message)
+				currentView.set_status('QuickSimplenote', message)
 
 def remove_status():
 	show_message(None)
@@ -329,7 +329,7 @@ def start():
 simplenote_instance = None
 started = False
 notes = []
-package_path = path.join(sublime.packages_path(), "quick_simplenote")
+package_path = path.join(sublime.packages_path(), "QuickSimplenote")
 temp_path = path.join(package_path, "temp")
 
 settings = sublime.load_settings('quick_simplenote.sublime-settings')
