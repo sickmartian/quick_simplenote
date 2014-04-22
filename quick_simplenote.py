@@ -1,10 +1,12 @@
 import sublime, sublime_plugin
 from simplenote import Simplenote
 
+from collections import deque
 from threading import Thread, Semaphore
 from os import path, makedirs, remove, listdir
 from datetime import datetime
 import time
+from abc import ABCMeta, abstractmethod
 
 def cmp_to_key(mycmp):
     'Convert a cmp= function into a key= function'
@@ -72,6 +74,76 @@ def close_view(view):
 	view.set_scratch(True)
 	view.window().focus_view(view)
 	view.window().run_command("close_file")
+
+class Operation(Thread):
+
+	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None):
+		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
+		self.callback = None
+
+	def set_callback(self, callback):
+		self.callback = callback
+
+	def join(self, result):
+		Thread.join(self)
+		if self.callback:
+			self.callback( result )
+
+	def get_run_finished_text(self):
+		return None
+
+	def get_update_run_text(self):
+		return None
+
+class OperationManager:
+	_instance = None
+	def __new__(cls, *args, **kwargs):
+		if not cls._instance:
+			cls._instance = super(OperationManager, *args, **kwargs)
+		return cls._instance
+
+	def __init__(self):
+		self.operations = deque([])
+		self.running = False
+		self.current_operation = None
+
+	def add_operation(self, operation):
+		self.operations.append(operation)
+		if (not self.running):
+			self.run()
+
+	def check_operations(self):
+
+		if self.current_operation == None:
+			return
+
+		# If it's still running, update the status
+		if self.current_operation.is_alive():
+			text = self.current_operation.get_update_run_text()
+		else:
+			# If not running, show finished text
+			# call callback with result and do the
+			# next operation
+			text = self.current_operation.get_run_finished_text()
+			self.current_operation.join()
+			if len( self.operations ) > 0:
+				self.start_next_operation()
+			else:
+				self.running = False
+				sublime.set_timeout(self.remove_status, 1000)
+
+		show_message(text)
+		if self.running:
+			sublime.set_timeout(self.check_operations, 1000)
+
+	def run(self):
+		self.start_next_operation()
+		sublime.set_timeout(self.check_operations, 1000)
+		self.running = True
+
+	def start_next_operation(self):
+		self.current_operation = self.operations.popleft()
+		self.current_operation.start()
 
 class NoteCreator(Thread):
 	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None):
