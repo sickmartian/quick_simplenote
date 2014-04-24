@@ -1,12 +1,10 @@
 import sublime, sublime_plugin
 from simplenote import Simplenote
 
-from collections import deque
-from threading import Thread, Semaphore
 from os import path, makedirs, remove, listdir
 from datetime import datetime
-import time
-from abc import ABCMeta, abstractmethod
+
+from operations import NoteCreator, NoteDownloader, MultipleNoteDownloader, NoteDeleter, NoteUpdater
 
 def cmp_to_key(mycmp):
     'Convert a cmp= function into a key= function'
@@ -75,149 +73,55 @@ def close_view(view):
 	view.window().focus_view(view)
 	view.window().run_command("close_file")
 
-class Operation(Thread):
-
-	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None):
-		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
-		self.callback = None
-
-	def set_callback(self, callback):
-		self.callback = callback
-
-	def join(self, result):
-		Thread.join(self)
-		if self.callback:
-			self.callback( result )
-
-	def get_run_finished_text(self):
-		return None
-
-	def get_update_run_text(self):
-		return None
-
 class OperationManager:
-	_instance = None
-	def __new__(cls, *args, **kwargs):
-		if not cls._instance:
-			cls._instance = super(OperationManager, *args, **kwargs)
-		return cls._instance
+    _instance = None
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(OperationManager, *args, **kwargs)
+        return cls._instance
 
-	def __init__(self):
-		self.operations = deque([])
-		self.running = False
-		self.current_operation = None
+    def __init__(self):
+        self.operations = deque([])
+        self.running = False
+        self.current_operation = None
 
-	def add_operation(self, operation):
-		self.operations.append(operation)
-		if (not self.running):
-			self.run()
+    def add_operation(self, operation):
+        self.operations.append(operation)
+        if (not self.running):
+            self.run()
 
-	def check_operations(self):
+    def check_operations(self):
 
-		if self.current_operation == None:
-			return
+        if self.current_operation == None:
+            return
 
-		# If it's still running, update the status
-		if self.current_operation.is_alive():
-			text = self.current_operation.get_update_run_text()
-		else:
-			# If not running, show finished text
-			# call callback with result and do the
-			# next operation
-			text = self.current_operation.get_run_finished_text()
-			self.current_operation.join()
-			if len( self.operations ) > 0:
-				self.start_next_operation()
-			else:
-				self.running = False
-				sublime.set_timeout(self.remove_status, 1000)
+        # If it's still running, update the status
+        if self.current_operation.is_alive():
+            text = self.current_operation.get_update_run_text()
+        else:
+            # If not running, show finished text
+            # call callback with result and do the
+            # next operation
+            text = self.current_operation.get_run_finished_text()
+            self.current_operation.join()
+            if len( self.operations ) > 0:
+                self.start_next_operation()
+            else:
+                self.running = False
+                sublime.set_timeout(self.remove_status, 1000)
 
-		show_message(text)
-		if self.running:
-			sublime.set_timeout(self.check_operations, 1000)
+        show_message(text)
+        if self.running:
+            sublime.set_timeout(self.check_operations, 1000)
 
-	def run(self):
-		self.start_next_operation()
-		sublime.set_timeout(self.check_operations, 1000)
-		self.running = True
+    def run(self):
+        self.start_next_operation()
+        sublime.set_timeout(self.check_operations, 1000)
+        self.running = True
 
-	def start_next_operation(self):
-		self.current_operation = self.operations.popleft()
-		self.current_operation.start()
-
-class NoteCreator(Thread):
-	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None):
-		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
-
-	def run(self):
-		print('QuickSimplenote: Creating note')
-		self.note = simplenote_instance.add_note('')[0];
-
-	def join(self):
-		Thread.join(self)
-		return self.note
-
-class NoteDownloader(Thread):
-	def __init__(self, note_id, semaphore, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None):
-		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
-		self.note_id = note_id
-		self.semaphore = semaphore
-	
-	def run(self):
-		self.semaphore.acquire()
-		print('QuickSimplenote: Downloading %s' % self.note_id)
-		self.note = simplenote_instance.get_note(self.note_id)[0]
-		self.semaphore.release()
-
-	def join(self):
-		Thread.join(self)
-		return self.note
-		
-
-class MultipleNoteDownloader(Thread):
-	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None):
-		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
-		self.notes = []
-
-	def run(self):
-
-		self.note_list = [note for note in simplenote_instance.get_note_list()[0] if note['deleted'] == 0]
-
-		threads = []
-		sem = Semaphore(3)
-		for current_note in self.note_list:
-			new_thread = NoteDownloader(current_note['key'], sem)
-			threads.append(new_thread)
-			new_thread.start()
-
-		self.notes = [thread.join() for thread in threads]
-
-	def join(self):
-		Thread.join(self)
-		return self.notes
-
-class NoteDeleter(Thread):
-	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, note=None):
-		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
-		self.note = note
-
-	def run(self):
-		print('QuickSimplenote: Deleting %s' % self.note['key'])
-		simplenote_instance.trash_note(self.note['key'])
-
-class NoteUpdater(Thread):
-	def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, note=None):
-		Thread.__init__(self, group, target, name, args, kwargs, Verbose)
-		self.note = note
-
-	def run(self):
-		print('QuickSimplenote: Updating %s' % self.note['key'])
-		self.note['modifydate'] = time.time()
-		self.note = simplenote_instance.update_note(self.note)[0]
-
-	def join(self):
-		Thread.join(self)
-		return self.note
+    def start_next_operation(self):
+        self.current_operation = self.operations.popleft()
+        self.current_operation.start()
 
 class HandleNoteViewCommand(sublime_plugin.EventListener):
 
@@ -252,7 +156,7 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
 		note = get_note_from_path(view_filepath)
 		if note:
 			note['content'] = view.substr(sublime.Region(0, view.size())).encode('utf-8')
-			self.updater = NoteUpdater(note=note)
+			self.updater = NoteUpdater(note=note, simplenote_instance=simplenote_instance)
 			self.updater.start()
 			sublime.set_timeout(self.check_updater, 1000)
 
@@ -320,7 +224,7 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
 			remove(path.join(temp_path, f))
 
 		show_message('QuickSimplenote: Downloading notes')
-		self.download_thread = MultipleNoteDownloader()
+		self.download_thread = MultipleNoteDownloader(simplenote_instance=simplenote_instance)
 		self.download_thread.start()
 		self.check_download()
 
@@ -346,7 +250,7 @@ class CreateQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
 		self.progress = -1
 
 		show_message('QuickSimplenote: Creating note')
-		self.creation_thread = NoteCreator()
+		self.creation_thread = NoteCreator(simplenote_instance=simplenote_instance)
 		self.creation_thread.start()
 		self.check_creation()
 
@@ -373,7 +277,7 @@ class DeleteQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
 		self.note = get_note_from_path(self.note_view.file_name())
 		if self.note:
 			show_message('QuickSimplenote: Deleting note')
-			self.deletion_thread = NoteDeleter(note=self.note)
+			self.deletion_thread = NoteDeleter(note=self.note, simplenote_instance=simplenote_instance)
 			self.deletion_thread.start()
 			self.check_deletion()
 
