@@ -108,7 +108,7 @@ class OperationManager:
                 self.start_next_operation()
             else:
                 self.running = False
-                sublime.set_timeout(self.remove_status, 1000)
+                sublime.set_timeout(remove_status, 1000)
 
         show_message(text)
         if self.running:
@@ -200,19 +200,10 @@ class ShowQuickSimplenoteNotesCommand(sublime_plugin.ApplicationCommand):
 
 class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
 
-	def check_download(self):
-		if self.progress >= 3:
-			self.progress = 0
-		self.progress += 1
-		if self.download_thread.is_alive():
-			show_message('QuickSimplenote: Downloading notes%s' % ( '.' * self.progress) )
-			sublime.set_timeout(self.check_download, 1000)
-		else:
-			global notes
-			notes = self.download_thread.join()
-			notes.sort(key=cmp_to_key(sort_notes), reverse=True)
-			show_message('QuickSimplenote: Done')
-			sublime.set_timeout(remove_status, 2000)
+	def set_result(self, new_notes):
+		global notes
+		notes = new_notes
+		print(notes)
 
 	def run(self):
 		self.progress = -1
@@ -224,9 +215,9 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
 			remove(path.join(temp_path, f))
 
 		show_message('QuickSimplenote: Downloading notes')
-		self.download_thread = MultipleNoteDownloader(simplenote_instance=simplenote_instance)
-		self.download_thread.start()
-		self.check_download()
+		download_op = MultipleNoteDownloader(simplenote_instance=simplenote_instance)
+		download_op.set_callback(self.set_result)
+		OperationManager().add_operation(download_op)
 
 class CreateQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
 
@@ -292,8 +283,6 @@ def start():
 		sublime.run_command('start_quick_simplenote');
 		started = True
 	else:
-		print(username)
-		print(password)
 		filepath = path.join(package_path, 'quick_simplenote.sublime-settings')
 		sublime.active_window().open_file(filepath)
 		show_message('QuickSimplenote: Please configure username/password')
