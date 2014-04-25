@@ -1,4 +1,3 @@
-from collections import deque
 from threading import Thread, Semaphore
 from abc import ABCMeta, abstractmethod
 import time

@@ -1,6 +1,7 @@
 import sublime, sublime_plugin
 from simplenote import Simplenote
 
+from collections import deque
 from os import path, makedirs, remove, listdir
 from datetime import datetime
 
@@ -203,7 +204,6 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
 	def set_result(self, new_notes):
 		global notes
 		notes = new_notes
-		print(notes)
 
 	def run(self):
 		self.progress = -1
