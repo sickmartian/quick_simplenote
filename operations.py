@@ -119,3 +119,9 @@ class NoteUpdater(Operation):
 
     def get_result(self):
         return self.note
+
+    def get_run_finished_text(self):
+        return 'QuickSimplenote: Done'
+
+    def get_update_run_text(self):
+        return 'QuickSimplenote: Updating note'
