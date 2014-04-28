@@ -16,6 +16,9 @@ class Operation(Thread):
         if self.callback:
             self.callback( self.get_result() )
 
+    def get_result(self):
+        return None
+
     def get_run_finished_text(self):
         return None
 
@@ -30,6 +33,12 @@ class NoteCreator(Operation):
     def run(self):
         print('QuickSimplenote: Creating note')
         self.note = self.simplenote_instance.add_note('')[0];
+
+    def get_run_finished_text(self):
+        return None
+
+    def get_update_run_text(self):
+        return 'QuickSimplenote: Creating note'
 
     def get_result(self):
         return self.note
@@ -86,6 +95,12 @@ class NoteDeleter(Operation):
         Operation.__init__(self, group, target, name, args, kwargs, Verbose)
         self.note = note
         self.simplenote_instance = simplenote_instance
+
+    def get_run_finished_text(self):
+        return None
+
+    def get_update_run_text(self):
+        return 'QuickSimplenote: Deleting note'
 
     def run(self):
         print('QuickSimplenote: Deleting %s' % self.note['key'])

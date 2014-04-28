@@ -27,52 +27,52 @@ def cmp_to_key(mycmp):
     return K
 
 def sort_notes(a_note, b_note):
-	if 'pinned' in a_note['systemtags']:
-		return 1
-	elif 'pinned' in b_note['systemtags']:
-		return -1
-	else:
-		date_a = datetime.fromtimestamp(float(a_note['modifydate']))
-		date_b = datetime.fromtimestamp(float(b_note['modifydate']))
-		return cmp(date_a, date_b)
+    if 'pinned' in a_note['systemtags']:
+        return 1
+    elif 'pinned' in b_note['systemtags']:
+        return -1
+    else:
+        date_a = datetime.fromtimestamp(float(a_note['modifydate']))
+        date_b = datetime.fromtimestamp(float(b_note['modifydate']))
+        return cmp(date_a, date_b)
 
 def show_message(message):
-	if not message:
-		message = ''
-	for window in sublime.windows():
-			for currentView in window.views():
-				currentView.set_status('QuickSimplenote', message)
+    if not message:
+        message = ''
+    for window in sublime.windows():
+            for currentView in window.views():
+                currentView.set_status('QuickSimplenote', message)
 
 def remove_status():
-	show_message(None)
+    show_message(None)
 
 def open_note(note):
-	filepath = get_path_for_note(note)
-	if not path.exists(filepath):
-		f = open(filepath, 'w')
-		try:
-			content = note['content']
-			f.write(content)
-		except KeyError:
-			pass
-		f.close()
-	sublime.active_window().open_file(filepath)
+    filepath = get_path_for_note(note)
+    if not path.exists(filepath):
+        f = open(filepath, 'w')
+        try:
+            content = note['content']
+            f.write(content)
+        except KeyError:
+            pass
+        f.close()
+    sublime.active_window().open_file(filepath)
 
 def get_path_for_note(note):
-	return path.join(temp_path, note['key'])
+    return path.join(temp_path, note['key'])
 
 def get_note_from_path(view_filepath):
-	note = None
-	if path.dirname(view_filepath) == temp_path:
-		note_key = path.split(view_filepath)[1]
-		note = [note for note in notes if note['key'] == note_key][0]
-	
-	return note
+    note = None
+    if path.dirname(view_filepath) == temp_path:
+        note_key = path.split(view_filepath)[1]
+        note = [note for note in notes if note['key'] == note_key][0]
+    
+    return note
 
 def close_view(view):
-	view.set_scratch(True)
-	view.window().focus_view(view)
-	view.window().run_command("close_file")
+    view.set_scratch(True)
+    view.window().focus_view(view)
+    view.window().run_command("close_file")
 
 class OperationManager:
     _instance = None
@@ -126,170 +126,136 @@ class OperationManager:
 
 class HandleNoteViewCommand(sublime_plugin.EventListener):
 
-	def check_updater(self):
-		global notes
+    def handle_note_changed(self, modified_note_resume):
+        global notes
+        # We get all data back except the content of the note
+        # we need to merge it ourselves
+        for index, note in enumerate(notes):
+            if note['key'] == modified_note_resume['key']:
+                modified_note_resume['content'] = note['content']
+                notes[index] = modified_note_resume
+                break
+        notes.sort(key=cmp_to_key(sort_notes), reverse=True)
 
-		if self.progress >= 3:
-			self.progress = 0
-		self.progress += 1
-
-		if self.updater.is_alive():
-			show_message('QuickSimplenote: Uploading note%s' % ( '.' * self.progress) )
-			sublime.set_timeout(self.check_updater, 1000)
-		else:
-			# We get all data back except the content of the note
-			# we need to merge it ourselves
-			modified_note_resume = self.updater.join()
-			for index, note in enumerate(notes):
-				if note['key'] == modified_note_resume['key']:
-					modified_note_resume['content'] = note['content']
-					notes[index] = modified_note_resume
-					break
-			notes.sort(key=cmp_to_key(sort_notes), reverse=True)
-
-			show_message('QuickSimplenote: Done')
-			sublime.set_timeout(remove_status, 2000)
-
-	def on_post_save(self, view):
-		self.progress = -1
-
-		view_filepath = view.file_name()
-		note = get_note_from_path(view_filepath)
-		if note:
-			note['content'] = view.substr(sublime.Region(0, view.size())).encode('utf-8')
-			self.updater = NoteUpdater(note=note, simplenote_instance=simplenote_instance)
-			self.updater.start()
-			sublime.set_timeout(self.check_updater, 1000)
+    def on_post_save(self, view):
+        view_filepath = view.file_name()
+        note = get_note_from_path(view_filepath)
+        if note:
+            note['content'] = view.substr(sublime.Region(0, view.size())).encode('utf-8')
+            update_op = NoteUpdater(note=note, simplenote_instance=simplenote_instance)
+            update_op.set_callback(self.handle_note_changed)
+            OperationManager().add_operation(update_op)
 
 class ShowQuickSimplenoteNotesCommand(sublime_plugin.ApplicationCommand):
 
-	def get_note_name(self, note):
-		try:
-			content = note['content']
-		except Exception, e:
-			return 'untitled'
-		index = content.find('\n');
-		if index > -1:
-			title = content[:index]
-		else:
-			if content:
-				title = content
-			else:
-				title = 'untitled'
-		title = title.decode('utf-8')
-		return title
+    def get_note_name(self, note):
+        try:
+            content = note['content']
+        except Exception, e:
+            return 'untitled'
+        index = content.find('\n');
+        if index > -1:
+            title = content[:index]
+        else:
+            if content:
+                title = content
+            else:
+                title = 'untitled'
+        title = title.decode('utf-8')
+        return title
 
-	def handle_selected(self, selected_index):
-		if not selected_index > -1:
-			return
+    def handle_selected(self, selected_index):
+        if not selected_index > -1:
+            return
 
-		selected_note = notes[selected_index]
-		open_note(selected_note)
+        selected_note = notes[selected_index]
+        open_note(selected_note)
 
-	def run(self):
-		if not started:
-			if not start():
-				return
+    def run(self):
+        if not started:
+            if not start():
+                return
 
-		i = 0
-		keys = []
-		for note in	notes:
-			i += 1
-			title = self.get_note_name(note)
-			keys.append(title)
-		sublime.active_window().show_quick_panel(keys, self.handle_selected)
+        i = 0
+        keys = []
+        for note in notes:
+            i += 1
+            title = self.get_note_name(note)
+            keys.append(title)
+        sublime.active_window().show_quick_panel(keys, self.handle_selected)
 
 class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
 
-	def set_result(self, new_notes):
-		global notes
-		notes = new_notes
+    def set_result(self, new_notes):
+        global notes
+        notes = new_notes
+        notes.sort(key=cmp_to_key(sort_notes), reverse=True)
 
-	def run(self):
-		self.progress = -1
+    def run(self):
+        self.progress = -1
 
-		show_message('QuickSimplenote: Setting up')
-		if not path.exists(temp_path):
-			makedirs(temp_path)
-		for f in listdir(temp_path):
-			remove(path.join(temp_path, f))
+        show_message('QuickSimplenote: Setting up')
+        if not path.exists(temp_path):
+            makedirs(temp_path)
+        for f in listdir(temp_path):
+            remove(path.join(temp_path, f))
 
-		show_message('QuickSimplenote: Downloading notes')
-		download_op = MultipleNoteDownloader(simplenote_instance=simplenote_instance)
-		download_op.set_callback(self.set_result)
-		OperationManager().add_operation(download_op)
+        show_message('QuickSimplenote: Downloading notes')
+        download_op = MultipleNoteDownloader(simplenote_instance=simplenote_instance)
+        download_op.set_callback(self.set_result)
+        OperationManager().add_operation(download_op)
 
 class CreateQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
 
-	def check_creation(self):
-		if self.progress >= 3:
-			self.progress = 0
-		self.progress += 1
-		if self.creation_thread.is_alive():
-			show_message('QuickSimplenote: Creating note%s' % ( '.' * self.progress) )
-			sublime.set_timeout(self.check_creation, 1000)
-		else:
-			global notes
-			note = self.creation_thread.join()
-			notes.append(note)
-			notes.sort(key=cmp_to_key(sort_notes), reverse=True)
-			show_message('QuickSimplenote: Done')
-			sublime.set_timeout(remove_status, 2000)
-			open_note(note)
+    def handle_new_note(self, result):
+        if result:
+            global notes
+            notes.append(result)
+            notes.sort(key=cmp_to_key(sort_notes), reverse=True)
+            show_message('QuickSimplenote: Done')
+            sublime.set_timeout(remove_status, 2000)
+            open_note(result)
 
-	def run(self):
-		self.progress = -1
-
-		show_message('QuickSimplenote: Creating note')
-		self.creation_thread = NoteCreator(simplenote_instance=simplenote_instance)
-		self.creation_thread.start()
-		self.check_creation()
+    def run(self):
+        creation_op = NoteCreator(simplenote_instance=simplenote_instance)
+        creation_op.set_callback(self.handle_new_note)
+        OperationManager().add_operation(creation_op)
 
 class DeleteQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
 
-	def check_deletion(self):
-		if self.progress >= 3:
-			self.progress = 0
-		self.progress += 1
-		if self.deletion_thread.is_alive():
-			show_message('QuickSimplenote: Deleting note%s' % ( '.' * self.progress) )
-			sublime.set_timeout(self.check_deletion, 1000)
-		else:
-			global notes
-			notes.remove(self.note)
-			remove(get_path_for_note(self.note))
-			close_view(self.note_view)
-			show_message('QuickSimplenote: Done')
-			sublime.set_timeout(remove_status, 2000)
+    def handle_deletion(self, result):
+        global notes
+        notes.remove(self.note)
+        remove(get_path_for_note(self.note))
+        close_view(self.note_view)
 
-	def run(self):
-		self.progress = -1
-		self.note_view = sublime.active_window().active_view()
-		self.note = get_note_from_path(self.note_view.file_name())
-		if self.note:
-			show_message('QuickSimplenote: Deleting note')
-			self.deletion_thread = NoteDeleter(note=self.note, simplenote_instance=simplenote_instance)
-			self.deletion_thread.start()
-			self.check_deletion()
+    def run(self):
+
+        self.note_view = sublime.active_window().active_view()
+        self.note = get_note_from_path(self.note_view.file_name())
+        if self.note:
+            deletion_op = NoteDeleter(note=self.note, simplenote_instance=simplenote_instance)
+            deletion_op.set_callback(self.handle_deletion)
+            OperationManager().add_operation(deletion_op)
 
 def start():
-	global started, simplenote_instance, settings
+    global started, simplenote_instance, settings
 
-	username = settings.get('username')
-	password = settings.get('password')
+    username = settings.get('username')
+    password = settings.get('password')
 
-	if (username and password):
-		simplenote_instance = Simplenote(username, password)
-		sublime.run_command('start_quick_simplenote');
-		started = True
-	else:
-		filepath = path.join(package_path, 'quick_simplenote.sublime-settings')
-		sublime.active_window().open_file(filepath)
-		show_message('QuickSimplenote: Please configure username/password')
-		sublime.set_timeout(remove_status, 2000)
-		started = False
+    if (username and password):
+        simplenote_instance = Simplenote(username, password)
+        sublime.run_command('start_quick_simplenote');
+        started = True
+    else:
+        filepath = path.join(package_path, 'quick_simplenote.sublime-settings')
+        sublime.active_window().open_file(filepath)
+        show_message('QuickSimplenote: Please configure username/password')
+        sublime.set_timeout(remove_status, 2000)
+        started = False
 
-	return started
+    return started
 
 simplenote_instance = None
 started = False
@@ -300,5 +266,5 @@ temp_path = path.join(package_path, "temp")
 settings = sublime.load_settings('quick_simplenote.sublime-settings')
 
 if settings.get('autostart'):
-	print('QuickSimplenote: Autostarting')
-	sublime.set_timeout(start, 2000) # I know...
+    print('QuickSimplenote: Autostarting')
+    sublime.set_timeout(start, 2000) # I know...
