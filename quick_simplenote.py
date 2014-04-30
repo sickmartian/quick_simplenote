@@ -184,33 +184,51 @@ class ShowQuickSimplenoteNotesCommand(sublime_plugin.ApplicationCommand):
             keys.append(title)
         sublime.active_window().show_quick_panel(keys, self.handle_selected)
 
+import pickle
 class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
+
+    def load_notes(self):
+        with open(path.join(package_path, 'note_cache'),'rb') as cache_file:
+            try:
+                notes = pickle.load(cache_file)
+            except EOFError, e:
+                notes = []
+        return notes
+
+    def save_notes(self, notes):
+        cache_file = open(path.join(package_path, 'note_cache'),'r+b')
+        pickle.dump(notes, cache_file)
 
     def set_result(self, new_notes):
         global notes
         notes = new_notes
         notes.sort(key=cmp_to_key(sort_notes), reverse=True)
+        self.save_notes(self.notes2)
 
     def merge_delta(self, updated_note_resume):
         # Here we create the note_resume we use on the rest of the app.
         # The note_resume we store consists of:
         # The note Id, the note resume as it comes from the simplenote api, the title, the filename
         # the last modified date (from the server) and the last modified date (from local)
-        pass
+        self.save_notes(self.notes2)
 
     def notes_synch(self, note_resume):
         # Here we synch updated notes in order of priority.
-        # First open notes:
+        # Open notes:
         #   Locally unsaved
         #   Locally saved
-        # Second locally existing closed notes
-        # Finally new notes
+        # Locally existing closed notes
+        # New notes
         pass
 
     def run(self):
         show_message('QuickSimplenote: Setting up')
+
         if not path.exists(temp_path):
             makedirs(temp_path)
+
+        self.notes2 = self.load_notes()
+
         for f in listdir(temp_path):
             remove(path.join(temp_path, f))
 
