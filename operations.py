@@ -61,7 +61,7 @@ class NoteDownloader(Thread):
         return self.note
         
 
-class MultipleNoteDownloader(Operation):
+class GetNotesDelta(Operation):
 
     def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, simplenote_instance=None):
         Operation.__init__(self, group, target, name, args, kwargs, Verbose)

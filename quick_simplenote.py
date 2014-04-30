@@ -5,7 +5,7 @@ from collections import deque
 from os import path, makedirs, remove, listdir
 from datetime import datetime
 
-from operations import NoteCreator, NoteDownloader, MultipleNoteDownloader, NoteDeleter, NoteUpdater
+from operations import NoteCreator, NoteDownloader, GetNotesDelta, NoteDeleter, NoteUpdater
 
 def cmp_to_key(mycmp):
     'Convert a cmp= function into a key= function'
@@ -191,9 +191,23 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
         notes = new_notes
         notes.sort(key=cmp_to_key(sort_notes), reverse=True)
 
-    def run(self):
-        self.progress = -1
+    def merge_delta(self, updated_note_resume):
+        # Here we create the note_resume we use on the rest of the app.
+        # The note_resume we store consists of:
+        # The note Id, the note resume as it comes from the simplenote api, the title, the filename
+        # the last modified date (from the server) and the last modified date (from local)
+        pass
 
+    def notes_synch(self, note_resume):
+        # Here we synch updated notes in order of priority.
+        # First open notes:
+        #   Locally unsaved
+        #   Locally saved
+        # Second locally existing closed notes
+        # Finally new notes
+        pass
+
+    def run(self):
         show_message('QuickSimplenote: Setting up')
         if not path.exists(temp_path):
             makedirs(temp_path)
@@ -201,9 +215,9 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
             remove(path.join(temp_path, f))
 
         show_message('QuickSimplenote: Downloading notes')
-        download_op = MultipleNoteDownloader(simplenote_instance=simplenote_instance)
-        download_op.set_callback(self.set_result)
-        OperationManager().add_operation(download_op)
+        get_delta_op = GetNotesDelta(simplenote_instance=simplenote_instance)
+        get_delta_op.set_callback(self.set_result)
+        OperationManager().add_operation(get_delta_op)
 
 class CreateQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
 
