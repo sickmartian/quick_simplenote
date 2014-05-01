@@ -188,15 +188,16 @@ import pickle
 class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
 
     def load_notes(self):
-        with open(path.join(package_path, 'note_cache'),'rb') as cache_file:
-            try:
+        notes = []
+        try:
+            with open(path.join(package_path, 'note_cache'),'rb') as cache_file:
                 notes = pickle.load(cache_file)
-            except EOFError, e:
-                notes = []
+        except (EOFError, IOError) as e:
+            pass
         return notes
 
     def save_notes(self, notes):
-        cache_file = open(path.join(package_path, 'note_cache'),'r+b')
+        cache_file = open(path.join(package_path, 'note_cache'),'w+b')
         pickle.dump(notes, cache_file)
 
     def set_result(self, new_notes):
