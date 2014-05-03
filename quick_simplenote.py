@@ -4,8 +4,10 @@ from simplenote import Simplenote
 from collections import deque
 from os import path, makedirs, remove, listdir
 from datetime import datetime
+import time
+from threading import Semaphore
 
-from operations import NoteCreator, NoteDownloader, GetNotesDelta, NoteDeleter, NoteUpdater
+from operations import NoteCreator, MultipleNoteContentDownloader, GetNotesDelta, NoteDeleter, NoteUpdater
 
 def cmp_to_key(mycmp):
     'Convert a cmp= function into a key= function'
@@ -58,16 +60,35 @@ def open_note(note):
         f.close()
     sublime.active_window().open_file(filepath)
 
+def get_filename_for_note(note):
+    return note['key']
+
 def get_path_for_note(note):
-    return path.join(temp_path, note['key'])
+    return path.join(temp_path, get_filename_for_note(note))
 
 def get_note_from_path(view_filepath):
     note = None
     if path.dirname(view_filepath) == temp_path:
-        note_key = path.split(view_filepath)[1]
-        note = [note for note in notes if note['key'] == note_key][0]
+        note_filename = path.split(view_filepath)[1]
+        note = [note for note in notes if get_filename_for_note(note) == note_filename][0]
     
     return note
+
+def get_note_name(note):
+    try:
+        content = note['content']
+    except Exception, e:
+        return 'untitled'
+    index = content.find('\n');
+    if index > -1:
+        title = content[:index]
+    else:
+        if content:
+            title = content
+        else:
+            title = 'untitled'
+    title = title.decode('utf-8')
+    return title
 
 def close_view(view):
     view.set_scratch(True)
@@ -148,22 +169,6 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
 
 class ShowQuickSimplenoteNotesCommand(sublime_plugin.ApplicationCommand):
 
-    def get_note_name(self, note):
-        try:
-            content = note['content']
-        except Exception, e:
-            return 'untitled'
-        index = content.find('\n');
-        if index > -1:
-            title = content[:index]
-        else:
-            if content:
-                title = content
-            else:
-                title = 'untitled'
-        title = title.decode('utf-8')
-        return title
-
     def handle_selected(self, selected_index):
         if not selected_index > -1:
             return
@@ -180,7 +185,7 @@ class ShowQuickSimplenoteNotesCommand(sublime_plugin.ApplicationCommand):
         keys = []
         for note in notes:
             i += 1
-            title = self.get_note_name(note)
+            title = get_note_name(note)
             keys.append(title)
         sublime.active_window().show_quick_panel(keys, self.handle_selected)
 
@@ -204,23 +209,132 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
         global notes
         notes = new_notes
         notes.sort(key=cmp_to_key(sort_notes), reverse=True)
-        self.save_notes(self.notes2)
 
-    def merge_delta(self, updated_note_resume):
+    def synch_note_resume(self, existing_note_entry, updated_note_resume):
+        for key in updated_note_resume:
+            existing_note_entry[key] = updated_note_resume[key]
+
+    def merge_delta(self, updated_note_resume, existing_notes):
         # Here we create the note_resume we use on the rest of the app.
         # The note_resume we store consists of:
-        # The note Id, the note resume as it comes from the simplenote api, the title, the filename
-        # the last modified date (from the server) and the last modified date (from local)
-        self.save_notes(self.notes2)
+        #   The note resume as it comes from the simplenote api.
+        #   The title, filename and last modified date of the local cache entry
 
-    def notes_synch(self, note_resume):
+        # Look at the new resume and find existing entries
+        for current_updated_note_resume in updated_note_resume:
+            existing_note_entry = None
+            for existing_note in existing_notes:
+                if existing_note['key'] == current_updated_note_resume['key']:
+                    existing_note_entry = existing_note
+                    break
+            # If we have it already
+            if existing_note_entry:
+                # Mark for update if needed
+                try:
+                    # Note with old content
+                    if existing_note_entry['local_modifydate'] < float(current_updated_note_resume['modifydate']):
+                        self.synch_note_resume(existing_note_entry, current_updated_note_resume)
+                        existing_note_entry['needs_update'] = True
+                    else:
+                        # Up to date note
+                        existing_note_entry['needs_update'] = False
+                except KeyError as e:
+                    # Note that never got the content downloaded:
+                    existing_note_entry['needs_update'] = True
+
+            # New note
+            else:
+                new_note_entry = {'needs_update': True}
+                self.synch_note_resume(new_note_entry, current_updated_note_resume)
+                existing_notes.append(new_note_entry)
+
+        # Look at the existing notes to find deletions
+        updated_note_resume_keys = [note['key'] for note in updated_note_resume]
+        deleted_notes = [deleted_note for deleted_note in existing_notes if deleted_note['key'] not in updated_note_resume_keys]
+        for deleted_note in deleted_notes:
+            existing_notes.remove(deleted_note)
+
+        self.save_notes(existing_notes)
+        self.notes_synch(existing_notes)
+
+    def notes_synch(self, notes):
         # Here we synch updated notes in order of priority.
         # Open notes:
         #   Locally unsaved
         #   Locally saved
-        # Locally existing closed notes
-        # New notes
-        pass
+        # Other notes in order of modifydate and priority
+
+        open_files_dirty = []
+        open_files_ok = []
+        for view_list in [window.views() for window in sublime.windows()]:
+            for view in view_list:
+                if view.file_name() == None:
+                    continue
+                
+                if view.is_dirty():
+                    open_files_dirty.append(path.split(view.file_name())[1])
+                else:
+                    open_files_ok.append(path.split(view.file_name())[1])
+
+        # Classify notes
+        lu = []
+        ls = []
+        others = []
+        for note in notes:
+
+            if not note['needs_update']:
+                continue
+            
+            try:
+                filename = note['filename']
+                print(filename)
+            except KeyError as e:
+                others.append(note)
+                continue
+            
+            if filename in open_files_dirty:
+                lu.append(note)
+            elif filename in open_files_ok:
+                ls.append(note)
+            else:
+                others.append(note)
+
+        # Sorted by priority/importance
+        lu.sort(key=cmp_to_key(sort_notes), reverse=True)
+        ls.sort(key=cmp_to_key(sort_notes), reverse=True)
+        others.sort(key=cmp_to_key(sort_notes), reverse=True)
+
+        sem = Semaphore(3)
+        show_message('QuickSimplenote: Downloading content')
+        down_op = MultipleNoteContentDownloader(sem, simplenote_instance=simplenote_instance, notes=lu)
+        down_op.set_callback(self.merge_notes, {'existing_notes':notes})
+        OperationManager().add_operation(down_op)
+        down_op = MultipleNoteContentDownloader(sem, simplenote_instance=simplenote_instance, notes=ls)
+        down_op.set_callback(self.merge_notes, {'existing_notes':notes})
+        OperationManager().add_operation(down_op)
+        down_op = MultipleNoteContentDownloader(sem, simplenote_instance=simplenote_instance, notes=others)
+        down_op.set_callback(self.merge_notes, {'existing_notes':notes})
+        OperationManager().add_operation(down_op)
+
+    def update_open_files_and_merge(self, updated_notes, existing_notes):
+        self.merge_notes(updated_notes, existing_notes)
+
+    def merge_notes(self, updated_notes, existing_notes):
+        # Merge
+        for note in existing_notes:
+
+            if not note['needs_update']:
+                continue
+
+            for updated_note in updated_notes:
+                if note['key'] == updated_note['key']:
+                    note['content'] = updated_note['content']
+                    note['local_modifydate'] = time.time()
+                    note['needs_update'] = False
+                    note['filename'] = get_filename_for_note(note)
+
+        self.save_notes(existing_notes)
+        self.set_result(existing_notes)
 
     def run(self):
         show_message('QuickSimplenote: Setting up')
@@ -228,14 +342,14 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
         if not path.exists(temp_path):
             makedirs(temp_path)
 
-        self.notes2 = self.load_notes()
+        existing_notes = self.load_notes()
 
         for f in listdir(temp_path):
             remove(path.join(temp_path, f))
 
         show_message('QuickSimplenote: Downloading notes')
         get_delta_op = GetNotesDelta(simplenote_instance=simplenote_instance)
-        get_delta_op.set_callback(self.set_result)
+        get_delta_op.set_callback(self.merge_delta, {'existing_notes':existing_notes})
         OperationManager().add_operation(get_delta_op)
 
 class CreateQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
