@@ -48,20 +48,26 @@ def show_message(message):
 def remove_status():
     show_message(None)
 
+def write_note_to_path(note, filepath):
+    f = open(filepath, 'w')
+    try:
+        content = note['content']
+        f.write(content)
+    except KeyError:
+        pass
+    f.close()
+
 def open_note(note):
     filepath = get_path_for_note(note)
-    if not path.exists(filepath):
-        f = open(filepath, 'w')
-        try:
-            content = note['content']
-            f.write(content)
-        except KeyError:
-            pass
-        f.close()
+    write_note_to_path(note, filepath)
     sublime.active_window().open_file(filepath)
 
 def get_filename_for_note(note):
-    return get_note_name(note) + ' (' + note['key'] + ')'
+    import string
+    valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+    note_name = get_note_name(note)
+    base = ''.join(c for c in note_name if c in valid_chars)
+    return base + ' (' + note['key'] + ')'
 
 def get_path_for_note(note):
     return path.join(temp_path, get_filename_for_note(note))
@@ -92,8 +98,11 @@ def get_note_name(note):
 
 def close_view(view):
     view.set_scratch(True)
-    view.window().focus_view(view)
-    view.window().run_command("close_file")
+    view_window = view.window()
+    if not view_window:
+        view_window = sublime.active_window()
+    view_window.focus_view(view)
+    view_window.run_command("close_file")
 
 class OperationManager:
     _instance = None
@@ -287,7 +296,6 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
             
             try:
                 filename = note['filename']
-                print(filename)
             except KeyError as e:
                 others.append(note)
                 continue
@@ -304,19 +312,42 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
         ls.sort(key=cmp_to_key(sort_notes), reverse=True)
         others.sort(key=cmp_to_key(sort_notes), reverse=True)
 
+        # Start updates
         sem = Semaphore(3)
         show_message('QuickSimplenote: Downloading content')
         down_op = MultipleNoteContentDownloader(sem, simplenote_instance=simplenote_instance, notes=lu)
-        down_op.set_callback(self.merge_notes, {'existing_notes':notes})
+        down_op.set_callback(self.merge_open, {'existing_notes':notes, 'dirty':True})
         OperationManager().add_operation(down_op)
         down_op = MultipleNoteContentDownloader(sem, simplenote_instance=simplenote_instance, notes=ls)
-        down_op.set_callback(self.merge_notes, {'existing_notes':notes})
+        down_op.set_callback(self.merge_open, {'existing_notes':notes})
         OperationManager().add_operation(down_op)
         down_op = MultipleNoteContentDownloader(sem, simplenote_instance=simplenote_instance, notes=others)
         down_op.set_callback(self.merge_notes, {'existing_notes':notes})
         OperationManager().add_operation(down_op)
 
-    def update_open_files_and_merge(self, updated_notes, existing_notes):
+    def merge_open(self, updated_notes, existing_notes, dirty=False):
+
+        # Update notes
+        for note in existing_notes:
+            for updated_note in updated_notes:
+                # If we find the updated note
+                if note['key'] == updated_note['key']:
+                    new_file_path = get_path_for_note(updated_note)
+                    # Update contents
+                    write_note_to_path(updated_note, new_file_path)
+                    # Handle filename change (note has the old filename value)
+                    old_file_path = get_path_for_note(note)
+                    if old_file_path != new_file_path:
+                        old_active = sublime.active_window().active_view()
+                        for view_list in [window.views() for window in sublime.windows()]:
+                            for view in view_list:
+                                if view.file_name() == old_file_path:
+                                    close_view(view)
+                        open_note(updated_note)
+                        sublime.active_window().focus_view(old_active)
+                    break
+
+        # Merge
         self.merge_notes(updated_notes, existing_notes)
 
     def merge_notes(self, updated_notes, existing_notes):

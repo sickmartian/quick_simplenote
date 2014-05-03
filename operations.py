@@ -15,7 +15,8 @@ class Operation(Thread):
     def join(self):
         Thread.join(self)
         if self.callback:
-            self.callback( self.get_result(), **self.callback_kwargs )
+            result = self.get_result()
+            self.callback( result, **self.callback_kwargs )
 
     def get_result(self):
         return None
