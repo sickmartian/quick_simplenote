@@ -61,7 +61,7 @@ def open_note(note):
     sublime.active_window().open_file(filepath)
 
 def get_filename_for_note(note):
-    return note['key']
+    return get_note_name(note) + ' (' + note['key'] + ')'
 
 def get_path_for_note(note):
     return path.join(temp_path, get_filename_for_note(note))
