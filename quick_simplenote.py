@@ -106,6 +106,10 @@ def handle_open_filename_change(old_file_path, updated_note):
                     close_view(view)
         open_note(updated_note)
         sublime.active_window().focus_view(old_active)
+        try:
+            remove(old_file_path)
+        except OSError as e:
+            pass
 
 def close_view(view):
     view.set_scratch(True)
@@ -124,6 +128,19 @@ def update_note(existing_note, updated_note):
     existing_note['local_modifydate'] = time.time()
     existing_note['needs_update'] = False
     existing_note['filename'] = get_filename_for_note(existing_note)
+
+def load_notes():
+    notes = []
+    try:
+        with open(path.join(package_path, 'note_cache'),'rb') as cache_file:
+            notes = pickle.load(cache_file)
+    except (EOFError, IOError) as e:
+        pass
+    return notes
+
+def save_notes(notes):
+    cache_file = open(path.join(package_path, 'note_cache'),'w+b')
+    pickle.dump(notes, cache_file)
 
 class OperationManager:
     _instance = None
@@ -191,6 +208,7 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
                 handle_open_filename_change(self.old_file_path, note)
                 break
         notes.sort(key=cmp_to_key(sort_notes), reverse=True)
+        save_notes(notes)
 
     def on_post_save(self, view):
         self.current_view = view
@@ -229,19 +247,6 @@ class ShowQuickSimplenoteNotesCommand(sublime_plugin.ApplicationCommand):
 
 import pickle
 class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
-
-    def load_notes(self):
-        notes = []
-        try:
-            with open(path.join(package_path, 'note_cache'),'rb') as cache_file:
-                notes = pickle.load(cache_file)
-        except (EOFError, IOError) as e:
-            pass
-        return notes
-
-    def save_notes(self, notes):
-        cache_file = open(path.join(package_path, 'note_cache'),'w+b')
-        pickle.dump(notes, cache_file)
 
     def set_result(self, new_notes):
         global notes
@@ -288,7 +293,7 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
         for deleted_note in deleted_notes:
             existing_notes.remove(deleted_note)
 
-        self.save_notes(existing_notes)
+        save_notes(existing_notes)
         self.notes_synch(existing_notes)
 
     def notes_synch(self, notes):
@@ -393,7 +398,7 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
                 if note['key'] == updated_note['key']:
                     update_note(note, updated_note)
 
-        self.save_notes(existing_notes)
+        save_notes(existing_notes)
         self.set_result(existing_notes)
 
     def run(self):
@@ -402,7 +407,7 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
         if not path.exists(temp_path):
             makedirs(temp_path)
 
-        existing_notes = self.load_notes()
+        existing_notes = load_notes()
 
         for f in listdir(temp_path):
             remove(path.join(temp_path, f))
@@ -417,8 +422,10 @@ class CreateQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
     def handle_new_note(self, result):
         if result:
             global notes
+            update_note(result, result)
             notes.append(result)
             notes.sort(key=cmp_to_key(sort_notes), reverse=True)
+            save_notes(notes)
             show_message('QuickSimplenote: Done')
             sublime.set_timeout(remove_status, 2000)
             open_note(result)
@@ -433,7 +440,11 @@ class DeleteQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
     def handle_deletion(self, result):
         global notes
         notes.remove(self.note)
-        remove(get_path_for_note(self.note))
+        save_notes(notes)
+        try:
+            remove(get_path_for_note(self.note))
+        except OSError as e:
+            pass
         close_view(self.note_view)
 
     def run(self):
