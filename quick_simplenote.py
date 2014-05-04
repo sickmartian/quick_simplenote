@@ -423,8 +423,6 @@ class CreateQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
             notes.append(result)
             notes.sort(key=cmp_to_key(sort_notes), reverse=True)
             save_notes(notes)
-            show_message('QuickSimplenote: Done')
-            sublime.set_timeout(remove_status, 2000)
             open_note(result)
 
     def run(self):
