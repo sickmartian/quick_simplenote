@@ -7,16 +7,25 @@ class Operation(Thread):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None):
         Thread.__init__(self, group, target, name, args, kwargs, Verbose)
         self.callback = None
+        self.exception_callback = None
 
     def set_callback(self, callback, kwargs={}):
         self.callback = callback
         self.callback_kwargs = kwargs
 
+    def set_exception_callback(self, callback):
+        self.exception_callback = callback
+
     def join(self):
         Thread.join(self)
         if self.callback:
             result = self.get_result()
-            self.callback( result, **self.callback_kwargs )
+            if not isinstance(result, Exception):
+                self.callback( result, **self.callback_kwargs )
+            elif self.exception_callback:
+                self.exception_callback( result )
+            else:
+                print(str(result))
 
     def get_result(self):
         return None
@@ -34,7 +43,11 @@ class NoteCreator(Operation):
 
     def run(self):
         print('QuickSimplenote: Creating note')
-        self.note = self.simplenote_instance.add_note('')[0];
+        operation_result = self.simplenote_instance.add_note('')
+        if operation_result[1] == 0:
+            self.result = operation_result[0]
+        else:
+            self.result = Exception("Error creating note")
 
     def get_run_finished_text(self):
         return None
@@ -43,7 +56,7 @@ class NoteCreator(Operation):
         return 'QuickSimplenote: Creating note'
 
     def get_result(self):
-        return self.note
+        return self.result
 
 class NoteDownloader(Thread):
     def __init__(self, note_id, semaphore, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, simplenote_instance=None):
@@ -55,12 +68,16 @@ class NoteDownloader(Thread):
     def run(self):
         self.semaphore.acquire()
         print('QuickSimplenote: Downloading %s' % self.note_id)
-        self.note = self.simplenote_instance.get_note(self.note_id)[0]
+        operation_result = self.simplenote_instance.get_note(self.note_id)
+        if operation_result[1] == 0:
+            self.result = operation_result[0]
+        else:
+            self.result = Exception("Error getting note")
         self.semaphore.release()
 
     def join(self):
         Thread.join(self)
-        return self.note
+        return self.result
         
 class MultipleNoteContentDownloader(Operation):
 
@@ -77,10 +94,19 @@ class MultipleNoteContentDownloader(Operation):
             threads.append(new_thread)
             new_thread.start()
 
-        self.notes_with_content = [thread.join() for thread in threads]
+        operation_result = [thread.join() for thread in threads]
+
+        error = False
+        for an_object in operation_result:
+            if isinstance(an_object, Exception):
+                error = True
+        if not error:
+            self.result = operation_result
+        else:
+            self.result = Exception("Error getting note")
 
     def get_result(self):
-        return self.notes_with_content
+        return self.result
 
     def get_run_finished_text(self):
         return 'QuickSimplenote: Done'
@@ -96,10 +122,15 @@ class GetNotesDelta(Operation):
         self.simplenote_instance = simplenote_instance
 
     def run(self):
-        self.note_resume = [note for note in self.simplenote_instance.get_note_list()[0] if note['deleted'] == 0]
+        note_resume_operation = self.simplenote_instance.get_note_list()
+        if note_resume_operation[1] == 0:
+            note_resume = note_resume_operation[0]
+            self.result = [note for note in note_resume if note['deleted'] == 0]
+        else:
+            self.result = Exception("Error getting notes")
 
     def get_result(self):
-        return self.note_resume
+        return self.result
 
     def get_run_finished_text(self):
         return 'QuickSimplenote: Done'
@@ -121,7 +152,14 @@ class NoteDeleter(Operation):
 
     def run(self):
         print('QuickSimplenote: Deleting %s' % self.note['key'])
-        self.simplenote_instance.trash_note(self.note['key'])
+        deletion_operation = self.simplenote_instance.trash_note(self.note['key'])
+        if deletion_operation[1] == 0:
+            self.result = True
+        else:
+            self.result = Exception("Error deleting note")
+
+    def get_result(self):
+        return self.result
 
 class NoteUpdater(Operation):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, note=None, simplenote_instance=None):
@@ -132,10 +170,15 @@ class NoteUpdater(Operation):
     def run(self):
         print('QuickSimplenote: Updating %s' % self.note['key'])
         self.note['modifydate'] = time.time()
-        self.note = self.simplenote_instance.update_note(self.note)[0]
+
+        note_update_operation = self.simplenote_instance.update_note(self.note)
+        if note_update_operation[1] == 0:
+            self.result = note_update_operation[0]
+        else:
+            self.result = Exception("Error updating note")
 
     def get_result(self):
-        return self.note
+        return self.result
 
     def get_run_finished_text(self):
         return 'QuickSimplenote: Done'

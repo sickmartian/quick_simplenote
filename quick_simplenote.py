@@ -2,6 +2,7 @@ import sublime, sublime_plugin
 from simplenote import Simplenote
 
 import time
+import copy
 from collections import deque
 from os import path, makedirs, remove, listdir
 from datetime import datetime
@@ -154,6 +155,9 @@ class OperationManager:
         self.running = False
         self.current_operation = None
 
+    def is_running(self):
+        return self.running
+
     def add_operation(self, operation):
         self.operations.append(operation)
         if (not self.running):
@@ -203,8 +207,9 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
         # with out data (extended fields and content)
         for note in notes:
             if note['key'] == modified_note_resume['key']:
-                update_note(note, modified_note_resume) # Update all other fields
-                note['content'] = self.get_current_content(self.current_view)
+                # Set content to the new note form the view
+                modified_note_resume['content'] = self.get_current_content(self.current_view)
+                update_note(note, modified_note_resume) # Update all fields
                 handle_open_filename_change(self.old_file_path, note)
                 break
         notes.sort(key=cmp_to_key(sort_notes), reverse=True)
@@ -217,9 +222,10 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
         if note:
             # Update with new content (save old filepath)
             self.old_file_path = get_path_for_note(note)
-            note['content'] = self.get_current_content(self.current_view)
+            updated_note = copy.deepcopy(note)
+            updated_note['content'] = self.get_current_content(self.current_view)
             # Send update
-            update_op = NoteUpdater(note=note, simplenote_instance=simplenote_instance)
+            update_op = NoteUpdater(note=updated_note, simplenote_instance=simplenote_instance)
             update_op.set_callback(self.handle_note_changed)
             OperationManager().add_operation(update_op)
 
@@ -326,6 +332,7 @@ class StartQuickSimplenoteSyncCommand(sublime_plugin.ApplicationCommand):
             
             try:
                 filename = note['filename']
+                print(filename)
             except KeyError as e:
                 others.append(note)
                 continue
@@ -459,8 +466,9 @@ def reload_if_needed():
         print('QuickSimplenote: Autostarting')
 
 def sync():
-    print('QuickSimplenote: Syncing')
-    sublime.run_command('start_quick_simplenote_sync');
+    if not OperationManager().is_running():
+        print('QuickSimplenote: Syncing')
+        sublime.run_command('start_quick_simplenote_sync');
     sync_every = settings.get('sync_every')
     if sync_every > 0:
         sublime.set_timeout(sync, sync_every * 1000)
