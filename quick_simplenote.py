@@ -99,9 +99,6 @@ def get_note_name(note):
 def handle_open_filename_change(old_file_path, updated_note):
     new_file_path = get_path_for_note(updated_note)
     if old_file_path != new_file_path:
-        print(updated_note)
-        print(old_file_path)
-        print(new_file_path)
         old_active = sublime.active_window().active_view()
         for view_list in [window.views() for window in sublime.windows()]:
             for view in view_list:
@@ -354,22 +351,36 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
         OperationManager().add_operation(down_op)
 
     def merge_open(self, updated_notes, existing_notes, dirty=False):
+        global settings
 
-        # Update notes
-        for note in existing_notes:
-            for updated_note in updated_notes:
-                # If we find the updated note
-                if note['key'] == updated_note['key']:
-                    old_file_path = get_path_for_note(note)
-                    new_file_path = get_path_for_note(updated_note)
-                    # Update contents
-                    write_note_to_path(updated_note, new_file_path)
-                    # Handle filename change (note has the old filename value)
-                    handle_open_filename_change(old_file_path, updated_note)
-                    break
+        auto_overwrite_on_conflict = settings.get('on_conflict_use_server')
+        do_nothing_on_conflict = settings.get('on_conflict_leave_alone')
+        update = False
 
-        # Merge
-        self.merge_notes(updated_notes, existing_notes)
+        # If it's not a conflict or it's a conflict we can resolve
+        if ( not dirty ) or ( dirty and not do_nothing_on_conflict ):
+
+            # If we don't have an overwrite policy, ask the user
+            if ( not auto_overwrite_on_conflict ) and dirty and len( updated_notes ) > 0:
+                note_names = '\n'.join([get_note_name(updated_note) for updated_note in updated_notes])
+                update = sublime.ok_cancel_dialog('Note(s):\n%s\nAre in conflict. Overwrite?' % note_names, 'Overwrite')
+
+            if ( not dirty ) or update or auto_overwrite_on_conflict:
+                # Update notes if the change is clean, or we were asked to update
+                for note in existing_notes:
+                    for updated_note in updated_notes:
+                        # If we find the updated note
+                        if note['key'] == updated_note['key']:
+                            old_file_path = get_path_for_note(note)
+                            new_file_path = get_path_for_note(updated_note)
+                            # Update contents
+                            write_note_to_path(updated_note, new_file_path)
+                            # Handle filename change (note has the old filename value)
+                            handle_open_filename_change(old_file_path, updated_note)
+                            break
+
+            # Merge
+            self.merge_notes(updated_notes, existing_notes)
 
     def merge_notes(self, updated_notes, existing_notes):
         # Merge
