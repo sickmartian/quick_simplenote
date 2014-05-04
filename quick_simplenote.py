@@ -453,21 +453,9 @@ class DeleteQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
             deletion_op.set_callback(self.handle_deletion)
             OperationManager().add_operation(deletion_op)
 
-def reload_if_needed():
-    global settings, started, reload_calls
-
-    # Sublime calls this twice for some reason :(
-    reload_calls = reload_calls + 1
-    if (reload_calls % 2 != 0):
-        return
-
-    if settings.get('autostart'):
-        sublime.set_timeout(start, 2000) # I know...
-        print('QuickSimplenote: Autostarting')
-
 def sync():
     if not OperationManager().is_running():
-        print('QuickSimplenote: Syncing')
+        print('QuickSimplenote: Syncing: %s' % time.time())
         sublime.run_command('start_quick_simplenote_sync');
     sync_every = settings.get('sync_every')
     if sync_every > 0:
@@ -491,6 +479,18 @@ def start():
         started = False
 
     return started
+
+def reload_if_needed():
+    global settings, started, reload_calls
+
+    # Sublime calls this twice for some reason :(
+    reload_calls = reload_calls + 1
+    if (reload_calls % 2 != 0):
+        return
+
+    if settings.get('autostart'):
+        sublime.set_timeout(start, 2000) # I know...
+        print('QuickSimplenote: Autostarting')
 
 reload_calls = -1
 simplenote_instance = None
