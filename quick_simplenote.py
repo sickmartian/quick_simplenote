@@ -49,7 +49,7 @@ def remove_status():
     show_message(None)
 
 def write_note_to_path(note, filepath):
-    f = open(filepath, 'w')
+    f = open(filepath, 'wb')
     try:
         content = note['content']
         f.write(content)
@@ -96,6 +96,20 @@ def get_note_name(note):
     title = title.decode('utf-8')
     return title
 
+def handle_open_filename_change(old_file_path, updated_note):
+    new_file_path = get_path_for_note(updated_note)
+    if old_file_path != new_file_path:
+        print(updated_note)
+        print(old_file_path)
+        print(new_file_path)
+        old_active = sublime.active_window().active_view()
+        for view_list in [window.views() for window in sublime.windows()]:
+            for view in view_list:
+                if view.file_name() == old_file_path:
+                    close_view(view)
+        open_note(updated_note)
+        sublime.active_window().focus_view(old_active)
+
 def close_view(view):
     view.set_scratch(True)
     view_window = view.window()
@@ -103,6 +117,16 @@ def close_view(view):
         view_window = sublime.active_window()
     view_window.focus_view(view)
     view_window.run_command("close_file")
+
+def synch_note_resume(existing_note_entry, updated_note_resume):
+    for key in updated_note_resume:
+        existing_note_entry[key] = updated_note_resume[key]
+
+def update_note(existing_note, updated_note):
+    synch_note_resume(existing_note, updated_note)
+    existing_note['local_modifydate'] = time.time()
+    existing_note['needs_update'] = False
+    existing_note['filename'] = get_filename_for_note(existing_note)
 
 class OperationManager:
     _instance = None
@@ -156,22 +180,30 @@ class OperationManager:
 
 class HandleNoteViewCommand(sublime_plugin.EventListener):
 
+    def get_current_content(self, view):
+        return view.substr(sublime.Region(0, view.size())).encode('utf-8')
+
     def handle_note_changed(self, modified_note_resume):
         global notes
-        # We get all data back except the content of the note
-        # we need to merge it ourselves
-        for index, note in enumerate(notes):
+        # We get all the resume data back. We have to merge it
+        # with out data (extended fields and content)
+        for note in notes:
             if note['key'] == modified_note_resume['key']:
-                modified_note_resume['content'] = note['content']
-                notes[index] = modified_note_resume
+                update_note(note, modified_note_resume) # Update all other fields
+                note['content'] = self.get_current_content(self.current_view)
+                handle_open_filename_change(self.old_file_path, note)
                 break
         notes.sort(key=cmp_to_key(sort_notes), reverse=True)
 
     def on_post_save(self, view):
-        view_filepath = view.file_name()
+        self.current_view = view
+        view_filepath = self.current_view.file_name()
         note = get_note_from_path(view_filepath)
         if note:
-            note['content'] = view.substr(sublime.Region(0, view.size())).encode('utf-8')
+            # Update with new content (save old filepath)
+            self.old_file_path = get_path_for_note(note)
+            note['content'] = self.get_current_content(self.current_view)
+            # Send update
             update_op = NoteUpdater(note=note, simplenote_instance=simplenote_instance)
             update_op.set_callback(self.handle_note_changed)
             OperationManager().add_operation(update_op)
@@ -219,10 +251,6 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
         notes = new_notes
         notes.sort(key=cmp_to_key(sort_notes), reverse=True)
 
-    def synch_note_resume(self, existing_note_entry, updated_note_resume):
-        for key in updated_note_resume:
-            existing_note_entry[key] = updated_note_resume[key]
-
     def merge_delta(self, updated_note_resume, existing_notes):
         # Here we create the note_resume we use on the rest of the app.
         # The note_resume we store consists of:
@@ -242,7 +270,7 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
                 try:
                     # Note with old content
                     if existing_note_entry['local_modifydate'] < float(current_updated_note_resume['modifydate']):
-                        self.synch_note_resume(existing_note_entry, current_updated_note_resume)
+                        synch_note_resume(existing_note_entry, current_updated_note_resume)
                         existing_note_entry['needs_update'] = True
                     else:
                         # Up to date note
@@ -254,7 +282,7 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
             # New note
             else:
                 new_note_entry = {'needs_update': True}
-                self.synch_note_resume(new_note_entry, current_updated_note_resume)
+                synch_note_resume(new_note_entry, current_updated_note_resume)
                 existing_notes.append(new_note_entry)
 
         # Look at the existing notes to find deletions
@@ -332,19 +360,12 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
             for updated_note in updated_notes:
                 # If we find the updated note
                 if note['key'] == updated_note['key']:
+                    old_file_path = get_path_for_note(note)
                     new_file_path = get_path_for_note(updated_note)
                     # Update contents
                     write_note_to_path(updated_note, new_file_path)
                     # Handle filename change (note has the old filename value)
-                    old_file_path = get_path_for_note(note)
-                    if old_file_path != new_file_path:
-                        old_active = sublime.active_window().active_view()
-                        for view_list in [window.views() for window in sublime.windows()]:
-                            for view in view_list:
-                                if view.file_name() == old_file_path:
-                                    close_view(view)
-                        open_note(updated_note)
-                        sublime.active_window().focus_view(old_active)
+                    handle_open_filename_change(old_file_path, updated_note)
                     break
 
         # Merge
@@ -359,10 +380,7 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
 
             for updated_note in updated_notes:
                 if note['key'] == updated_note['key']:
-                    note['content'] = updated_note['content']
-                    note['local_modifydate'] = time.time()
-                    note['needs_update'] = False
-                    note['filename'] = get_filename_for_note(note)
+                    update_note(note, updated_note)
 
         self.save_notes(existing_notes)
         self.set_result(existing_notes)
