@@ -105,7 +105,7 @@ class GetNotesDelta(Operation):
         return 'QuickSimplenote: Done'
 
     def get_update_run_text(self):
-        return 'QuickSimplenote: Downloading notes'
+        return 'QuickSimplenote: Downloading note list'
 
 class NoteDeleter(Operation):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, note=None, simplenote_instance=None):

@@ -1,10 +1,10 @@
 import sublime, sublime_plugin
 from simplenote import Simplenote
 
+import time
 from collections import deque
 from os import path, makedirs, remove, listdir
 from datetime import datetime
-import time
 from threading import Semaphore
 
 from operations import NoteCreator, MultipleNoteContentDownloader, GetNotesDelta, NoteDeleter, NoteUpdater
@@ -246,7 +246,7 @@ class ShowQuickSimplenoteNotesCommand(sublime_plugin.ApplicationCommand):
         sublime.active_window().show_quick_panel(keys, self.handle_selected)
 
 import pickle
-class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
+class StartQuickSimplenoteSyncCommand(sublime_plugin.ApplicationCommand):
 
     def set_result(self, new_notes):
         global notes
@@ -402,19 +402,9 @@ class StartQuickSimplenoteCommand(sublime_plugin.ApplicationCommand):
         self.set_result(existing_notes)
 
     def run(self):
-        show_message('QuickSimplenote: Setting up')
-
-        if not path.exists(temp_path):
-            makedirs(temp_path)
-
-        existing_notes = load_notes()
-
-        for f in listdir(temp_path):
-            remove(path.join(temp_path, f))
-
-        show_message('QuickSimplenote: Downloading notes')
+        show_message('QuickSimplenote: Synching')
         get_delta_op = GetNotesDelta(simplenote_instance=simplenote_instance)
-        get_delta_op.set_callback(self.merge_delta, {'existing_notes':existing_notes})
+        get_delta_op.set_callback(self.merge_delta, {'existing_notes':notes})
         OperationManager().add_operation(get_delta_op)
 
 class CreateQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
@@ -468,6 +458,13 @@ def reload_if_needed():
         sublime.set_timeout(start, 2000) # I know...
         print('QuickSimplenote: Autostarting')
 
+def sync():
+    print('QuickSimplenote: Syncing')
+    sublime.run_command('start_quick_simplenote_sync');
+    sync_every = settings.get('sync_every')
+    if sync_every > 0:
+        sublime.set_timeout(sync, sync_every * 1000)
+
 def start():
     global started, simplenote_instance, settings
 
@@ -476,7 +473,7 @@ def start():
 
     if (username and password):
         simplenote_instance = Simplenote(username, password)
-        sublime.run_command('start_quick_simplenote');
+        sync()
         started = True
     else:
         filepath = path.join(package_path, 'quick_simplenote.sublime-settings')
@@ -493,6 +490,12 @@ started = False
 notes = []
 package_path = path.join(sublime.packages_path(), "QuickSimplenote")
 temp_path = path.join(package_path, "temp")
+
+if not path.exists(temp_path):
+    makedirs(temp_path)
+for f in listdir(temp_path):
+    remove(path.join(temp_path, f))
+notes = load_notes()
 
 settings = sublime.load_settings('quick_simplenote.sublime-settings')
 settings.clear_on_change('username')
