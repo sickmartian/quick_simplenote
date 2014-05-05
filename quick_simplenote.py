@@ -64,11 +64,24 @@ def open_note(note):
     sublime.active_window().open_file(filepath)
 
 def get_filename_for_note(note):
+    # Take out invalid characters from title and use that as base for the name
     import string
     valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
     note_name = get_note_name(note)
     base = ''.join(c for c in note_name if c in valid_chars)
-    return base + ' (' + note['key'] + ')'
+    # Determine extension based on title
+    extension_map = settings.get('title_extension_map')
+    extension = ''
+    if extension_map:
+        for item in extension_map:
+            import re
+            if re.search(note_name, item['title_regex']):
+                extension = '.' + item['extension']
+                break
+
+        print extension_map
+
+    return base + ' (' + note['key'] + ')' + extension
 
 def get_path_for_note(note):
     return path.join(temp_path, get_filename_for_note(note))
