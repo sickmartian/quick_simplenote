@@ -6,7 +6,7 @@ import copy
 from collections import deque
 from os import path, makedirs, remove, listdir
 from datetime import datetime
-from threading import Semaphore
+from threading import Semaphore, Lock
 
 from operations import NoteCreator, MultipleNoteContentDownloader, GetNotesDelta, NoteDeleter, NoteUpdater
 
@@ -157,9 +157,13 @@ def save_notes(notes):
 
 class OperationManager:
     _instance = None
-    def __new__(cls, *args, **kwargs):
+    _lock = Lock()
+    @classmethod
+    def instance(cls):
         if not cls._instance:
-            cls._instance = super(OperationManager, *args, **kwargs)
+            with cls._lock:
+                if not cls._instance:
+                    cls._instance = OperationManager()
         return cls._instance
 
     def __init__(self):
@@ -239,7 +243,7 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
             # Send update
             update_op = NoteUpdater(note=updated_note, simplenote_instance=simplenote_instance)
             update_op.set_callback(self.handle_note_changed)
-            OperationManager().add_operation(update_op)
+            OperationManager.instance().add_operation(update_op)
 
 class ShowQuickSimplenoteNotesCommand(sublime_plugin.ApplicationCommand):
 
@@ -363,15 +367,18 @@ class StartQuickSimplenoteSyncCommand(sublime_plugin.ApplicationCommand):
         # Start updates
         sem = Semaphore(3)
         show_message('QuickSimplenote: Downloading content')
-        down_op = MultipleNoteContentDownloader(sem, simplenote_instance=simplenote_instance, notes=lu)
-        down_op.set_callback(self.merge_open, {'existing_notes':notes, 'dirty':True})
-        OperationManager().add_operation(down_op)
-        down_op = MultipleNoteContentDownloader(sem, simplenote_instance=simplenote_instance, notes=ls)
-        down_op.set_callback(self.merge_open, {'existing_notes':notes})
-        OperationManager().add_operation(down_op)
-        down_op = MultipleNoteContentDownloader(sem, simplenote_instance=simplenote_instance, notes=others)
-        down_op.set_callback(self.merge_notes, {'existing_notes':notes})
-        OperationManager().add_operation(down_op)
+        if lu:
+            down_op = MultipleNoteContentDownloader(sem, simplenote_instance=simplenote_instance, notes=lu)
+            down_op.set_callback(self.merge_open, {'existing_notes':notes, 'dirty':True})
+            OperationManager.instance().add_operation(down_op)
+        if ls:
+            down_op = MultipleNoteContentDownloader(sem, simplenote_instance=simplenote_instance, notes=ls)
+            down_op.set_callback(self.merge_open, {'existing_notes':notes})
+            OperationManager.instance().add_operation(down_op)
+        if others:
+            down_op = MultipleNoteContentDownloader(sem, simplenote_instance=simplenote_instance, notes=others)
+            down_op.set_callback(self.merge_notes, {'existing_notes':notes})
+            OperationManager.instance().add_operation(down_op)
 
     def merge_open(self, updated_notes, existing_notes, dirty=False):
         global settings
@@ -423,7 +430,7 @@ class StartQuickSimplenoteSyncCommand(sublime_plugin.ApplicationCommand):
         show_message('QuickSimplenote: Synching')
         get_delta_op = GetNotesDelta(simplenote_instance=simplenote_instance)
         get_delta_op.set_callback(self.merge_delta, {'existing_notes':notes})
-        OperationManager().add_operation(get_delta_op)
+        OperationManager.instance().add_operation(get_delta_op)
 
 class CreateQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
 
@@ -439,7 +446,7 @@ class CreateQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
     def run(self):
         creation_op = NoteCreator(simplenote_instance=simplenote_instance)
         creation_op.set_callback(self.handle_new_note)
-        OperationManager().add_operation(creation_op)
+        OperationManager.instance().add_operation(creation_op)
 
 class DeleteQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
 
@@ -460,10 +467,10 @@ class DeleteQuickSimplenoteNoteCommand(sublime_plugin.ApplicationCommand):
         if self.note:
             deletion_op = NoteDeleter(note=self.note, simplenote_instance=simplenote_instance)
             deletion_op.set_callback(self.handle_deletion)
-            OperationManager().add_operation(deletion_op)
+            OperationManager.instance().add_operation(deletion_op)
 
 def sync():
-    if not OperationManager().is_running():
+    if not OperationManager.instance().is_running():
         print('QuickSimplenote: Syncing: %s' % time.time())
         sublime.run_command('start_quick_simplenote_sync');
     else:
