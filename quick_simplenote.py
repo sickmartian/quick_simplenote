@@ -75,11 +75,10 @@ def get_filename_for_note(note):
     if extension_map:
         for item in extension_map:
             import re
-            if re.search(note_name, item['title_regex']):
+            pattern = re.compile(item['title_regex'], re.UNICODE)
+            if re.search(pattern, note_name):
                 extension = '.' + item['extension']
                 break
-
-        print extension_map
 
     return base + ' (' + note['key'] + ')' + extension
 
@@ -345,7 +344,6 @@ class StartQuickSimplenoteSyncCommand(sublime_plugin.ApplicationCommand):
             
             try:
                 filename = note['filename']
-                print(filename)
             except KeyError as e:
                 others.append(note)
                 continue
@@ -468,6 +466,8 @@ def sync():
     if not OperationManager().is_running():
         print('QuickSimplenote: Syncing: %s' % time.time())
         sublime.run_command('start_quick_simplenote_sync');
+    else:
+        print('QuickSimplenote: Sync ommited %s' % time.time())
     sync_every = settings.get('sync_every')
     if sync_every > 0:
         sublime.set_timeout(sync, sync_every * 1000)
