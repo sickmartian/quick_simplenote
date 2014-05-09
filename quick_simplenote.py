@@ -407,6 +407,10 @@ class StartQuickSimplenoteSyncCommand(sublime_plugin.ApplicationCommand):
                             write_note_to_path(updated_note, new_file_path)
                             # Handle filename change (note has the old filename value)
                             handle_open_filename_change(old_file_path, updated_note)
+                            # Reload view of the note if it's selected
+                            for view in [window.active_view() for window in sublime.windows()]:
+                                if view.file_name() == new_file_path:
+                                    view.run_command("revert")
                             break
 
             # Merge
