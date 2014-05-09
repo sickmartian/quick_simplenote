@@ -517,11 +517,13 @@ notes = []
 package_path = path.join(sublime.packages_path(), "QuickSimplenote")
 temp_path = path.join(package_path, "temp")
 
+notes = load_notes()
+note_files = [note['filename'] for note in notes]
 if not path.exists(temp_path):
     makedirs(temp_path)
 for f in listdir(temp_path):
-    remove(path.join(temp_path, f))
-notes = load_notes()
+    if f not in note_files:
+        remove(path.join(temp_path, f))
 
 settings = sublime.load_settings('quick_simplenote.sublime-settings')
 settings.clear_on_change('username')
