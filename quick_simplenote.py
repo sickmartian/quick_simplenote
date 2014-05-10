@@ -90,7 +90,9 @@ def get_note_from_path(view_filepath):
     if view_filepath:
         if path.dirname(view_filepath) == temp_path:
             note_filename = path.split(view_filepath)[1]
-            note = [note for note in notes if get_filename_for_note(note) == note_filename][0]
+            note = [note for note in notes if get_filename_for_note(note) == note_filename]
+            if note:
+                note = note[0]
     
     return note
 
@@ -283,7 +285,7 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
             updated_note = copy.deepcopy(note)
             # Handle when the note changes elsewhere and the user goes to that tab:
             # sublime reloads the view, it's handled as changed and sent here
-            if updated_note['content'] == self.get_current_content(self.current_view):
+            if 'content' in updated_note and updated_note['content'] == self.get_current_content(self.current_view):
                 return
             updated_note['content'] = self.get_current_content(self.current_view)
             # Send update
