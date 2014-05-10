@@ -87,9 +87,10 @@ def get_path_for_note(note):
 
 def get_note_from_path(view_filepath):
     note = None
-    if path.dirname(view_filepath) == temp_path:
-        note_filename = path.split(view_filepath)[1]
-        note = [note for note in notes if get_filename_for_note(note) == note_filename][0]
+    if view_filepath:
+        if path.dirname(view_filepath) == temp_path:
+            note_filename = path.split(view_filepath)[1]
+            note = [note for note in notes if get_filename_for_note(note) == note_filename][0]
     
     return note
 
@@ -214,6 +215,47 @@ class OperationManager:
 
 class HandleNoteViewCommand(sublime_plugin.EventListener):
 
+    waiting_to_save = []
+    def on_modified(self, view):
+
+        def flush_saves():
+            if OperationManager.instance().is_running():
+                sublime.set_timeout(flush_saves, 1000)
+                return
+
+            for entry in HandleNoteViewCommand.waiting_to_save:
+                if entry['note_key'] == note['key']:
+
+                    with entry['lock']:
+                        entry['count'] = entry['count'] - 1
+                        if entry['count'] == 0:
+                            view.run_command("save")
+                    break
+
+        self.current_view = view
+        view_filepath = self.current_view.file_name()
+        note = get_note_from_path(view_filepath)
+        if note:
+            debounce_time = settings.get('autosave_debounce_time')
+            if not debounce_time:
+                return
+            debounce_time = debounce_time * 1000
+
+            found = False
+            for entry in HandleNoteViewCommand.waiting_to_save:
+                if entry['note_key'] == note['key']:
+                    with entry['lock']:
+                        entry['count'] = entry['count'] + 1
+                    found = True
+                    break
+            if not found:
+                new_entry = {}
+                new_entry['note_key'] = note['key']
+                new_entry['lock'] = Lock()
+                new_entry['count'] = 1
+                HandleNoteViewCommand.waiting_to_save.append(new_entry)
+            sublime.set_timeout(flush_saves, debounce_time)
+
     def get_current_content(self, view):
         return view.substr(sublime.Region(0, view.size())).encode('utf-8')
 
@@ -239,6 +281,10 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
             # Update with new content (save old filepath)
             self.old_file_path = get_path_for_note(note)
             updated_note = copy.deepcopy(note)
+            # Handle when the note changes elsewhere and the user goes to that tab:
+            # sublime reloads the view, it's handled as changed and sent here
+            if updated_note['content'] == self.get_current_content(self.current_view):
+                return
             updated_note['content'] = self.get_current_content(self.current_view)
             # Send update
             update_op = NoteUpdater(note=updated_note, simplenote_instance=simplenote_instance)
