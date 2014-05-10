@@ -1,5 +1,36 @@
 {
-    "autostart": true,
-    "username": "",
-    "password": ""
+	// --------------------------------
+	// Credentials:
+	// --------------------------------
+	"username": ""
+    ,"password": ""
+    // --------------------------------
+    // Sync settings:
+    // --------------------------------
+    // Sync when sublime text starts:
+    ,"autostart": true
+    // Sync automatically (in seconds)
+    ,"sync_every": 30
+    // Conflict resolution (If a file was edited on another client and also here, on sync..)
+    // Server Wins (Same as selecting 'Overwrite')
+    ,"on_conflict_use_server": false
+    // Local is left unchanged (Same as selecting 'Cancel')
+    ,"on_conflict_leave_alone": false
+    // --------------------------------
+    // Autosave (beta)
+    // --------------------------------
+    // Activate autosave and tell how much (in seconds) to wait
+    // after you stop typing to send the save
+    // ,"autosave_debounce_time": 1
+    // --------------------------------
+    // File extension support
+    // --------------------------------
+    // Which file extension should the temporal files use?
+    // This allows you to interact with other plugins such as
+    // PlainTasks defining an extension for certain note title
+    // ,"title_extension_map": [{
+    	// "title_regex": "\\[ST\\]",
+    	// "extension": "todo"
+    // }]
+    
 }
