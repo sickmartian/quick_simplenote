@@ -261,14 +261,14 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
     def get_current_content(self, view):
         return view.substr(sublime.Region(0, view.size())).encode('utf-8')
 
-    def handle_note_changed(self, modified_note_resume):
+    def handle_note_changed(self, modified_note_resume, content):
         global notes
         # We get all the resume data back. We have to merge it
-        # with out data (extended fields and content)
+        # with our data (extended fields and content)
         for note in notes:
             if note['key'] == modified_note_resume['key']:
-                # Set content to the new note form the view
-                modified_note_resume['content'] = self.get_current_content(self.current_view)
+                # Set content to the updated one
+                modified_note_resume['content'] = content
                 update_note(note, modified_note_resume) # Update all fields
                 handle_open_filename_change(self.old_file_path, note)
                 break
@@ -290,7 +290,7 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
             updated_note['content'] = self.get_current_content(self.current_view)
             # Send update
             update_op = NoteUpdater(note=updated_note, simplenote_instance=simplenote_instance)
-            update_op.set_callback(self.handle_note_changed)
+            update_op.set_callback(self.handle_note_changed, {'content': updated_note['content']})
             OperationManager.instance().add_operation(update_op)
 
 class ShowQuickSimplenoteNotesCommand(sublime_plugin.ApplicationCommand):
@@ -458,7 +458,7 @@ class StartQuickSimplenoteSyncCommand(sublime_plugin.ApplicationCommand):
                             # Reload view of the note if it's selected
                             for view in [window.active_view() for window in sublime.windows()]:
                                 if view.file_name() == new_file_path:
-                                    view.run_command("revert")
+                                    sublime.setTimeout(functools.partial(view.runCommand, 'revert'), 0)
                             break
 
             # Merge
