@@ -58,10 +58,12 @@ def write_note_to_path(note, filepath):
         pass
     f.close()
 
-def open_note(note):
+def open_note(note, window=None):
+    if not window:
+        window = sublime.active_window()
     filepath = get_path_for_note(note)
     write_note_to_path(note, filepath)
-    sublime.active_window().open_file(filepath)
+    window.open_file(filepath)
 
 def get_filename_for_note(note):
     # Take out invalid characters from title and use that as base for the name
@@ -114,13 +116,16 @@ def get_note_name(note):
 
 def handle_open_filename_change(old_file_path, updated_note):
     new_file_path = get_path_for_note(updated_note)
+    old_note_window = None
     if old_file_path != new_file_path:
         old_active = sublime.active_window().active_view()
         for view_list in [window.views() for window in sublime.windows()]:
             for view in view_list:
                 if view.file_name() == old_file_path:
-                    close_view(view)
-        open_note(updated_note)
+                    old_note_window = window
+        if old_note_window:
+            open_note(updated_note, old_note_window)
+            close_view(view)
         sublime.active_window().focus_view(old_active)
         try:
             remove(old_file_path)
