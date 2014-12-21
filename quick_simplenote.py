@@ -94,8 +94,16 @@ def get_note_from_path(view_filepath):
         if path.dirname(view_filepath) == temp_path:
             note_filename = path.split(view_filepath)[1]
             note = [note for note in notes if get_filename_for_note(note) == note_filename]
+            if not note:
+                import re
+                pattern = re.compile(ur'\((.*?)\)')
+                results = re.findall(pattern, note_filename)
+                if results:
+                    noteKey = results[ len(results) - 1]
+                    note = [note for note in notes if note['key'] == noteKey]
             if note:
                 note = note[0]
+
     
     return note
 
