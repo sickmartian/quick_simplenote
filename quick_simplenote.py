@@ -140,6 +140,8 @@ def handle_open_filename_change(old_file_path, updated_note):
             remove(old_file_path)
         except OSError as e:
             pass
+        return True
+    return False
 
 def close_view(view):
     view.set_scratch(True)
@@ -248,8 +250,7 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
                             view.run_command("save")
                     break
 
-        self.current_view = view
-        view_filepath = self.current_view.file_name()
+        view_filepath = view.file_name()
         note = get_note_from_path(view_filepath)
         if note:
             debounce_time = settings.get('autosave_debounce_time')
@@ -275,36 +276,48 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
     def get_current_content(self, view):
         return view.substr(sublime.Region(0, view.size())).encode('utf-8')
 
-    def handle_note_changed(self, modified_note_resume, content):
+    def handle_note_changed(self, modified_note_resume, content, old_file_path, open_view):
         global notes
         # We get all the resume data back. We have to merge it
         # with our data (extended fields and content)
         for note in notes:
             if note['key'] == modified_note_resume['key']:
                 # Set content to the updated one
-                modified_note_resume['content'] = content
+                # or to the view's content if we don't have any update
+                updated_from_server = False
+                if not 'content' in modified_note_resume:
+                    modified_note_resume['content'] = content
+                else:
+                    updated_from_server = True
                 update_note(note, modified_note_resume) # Update all fields
-                handle_open_filename_change(self.old_file_path, note)
+                name_changed = handle_open_filename_change(old_file_path, note)
+                # If we didn't reopen the view with the name changed, but the content has changed
+                # we have to update the view anyway
+                if updated_from_server and not name_changed:
+                    filepath = get_path_for_note(note)
+                    write_note_to_path(note, filepath)
+                    sublime.set_timeout(functools.partial(open_view.run_command, 'revert'), 0)
                 break
         notes.sort(key=cmp_to_key(sort_notes), reverse=True)
         save_notes(notes)
 
     def on_post_save(self, view):
-        self.current_view = view
-        view_filepath = self.current_view.file_name()
+        view_filepath = view.file_name()
         note = get_note_from_path(view_filepath)
         if note:
-            # Update with new content (save old filepath)
-            self.old_file_path = get_path_for_note(note)
+            # Update with new content
             updated_note = copy.deepcopy(note)
             # Handle when the note changes elsewhere and the user goes to that tab:
             # sublime reloads the view, it's handled as changed and sent here
-            if 'content' in updated_note and updated_note['content'] == self.get_current_content(self.current_view):
+            if 'content' in updated_note and updated_note['content'] == self.get_current_content(view):
                 return
-            updated_note['content'] = self.get_current_content(self.current_view)
+            updated_note['content'] = self.get_current_content(view)
             # Send update
             update_op = NoteUpdater(note=updated_note, simplenote_instance=simplenote_instance)
-            update_op.set_callback(self.handle_note_changed, {'content': updated_note['content']})
+            update_op.set_callback(self.handle_note_changed,
+                {'content': updated_note['content'],
+                 'old_file_path': view_filepath,
+                 'open_view': view})
             OperationManager.instance().add_operation(update_op)
 
 class ShowQuickSimplenoteNotesCommand(sublime_plugin.ApplicationCommand):
