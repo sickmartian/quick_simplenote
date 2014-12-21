@@ -1,6 +1,7 @@
 import sublime, sublime_plugin
 from simplenote import Simplenote
 
+import functools
 import time
 import copy
 from collections import deque
@@ -463,7 +464,7 @@ class StartQuickSimplenoteSyncCommand(sublime_plugin.ApplicationCommand):
                             # Reload view of the note if it's selected
                             for view in [window.active_view() for window in sublime.windows()]:
                                 if view.file_name() == new_file_path:
-                                    sublime.setTimeout(functools.partial(view.runCommand, 'revert'), 0)
+                                    sublime.set_timeout(functools.partial(view.run_command, 'revert'), 0)
                             break
 
             # Merge
