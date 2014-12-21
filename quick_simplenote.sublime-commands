@@ -1,14 +1,14 @@
 [
   {
     "command": "create_quick_simplenote_note",
-    "caption": "Simply Sublime: New Note"
+    "caption": "QuickSimplenote: New Note"
   },
   {
     "command": "show_quick_simplenote_notes",
-    "caption": "Simply Sublime: Open list"
+    "caption": "QuickSimplenote: Open list"
   },
   {
     "command": "delete_quick_simplenote_note",
-    "caption": "Simply Sublime: Delete Current Note"
+    "caption": "QuickSimplenote: Delete Current Note"
   }
 ]
