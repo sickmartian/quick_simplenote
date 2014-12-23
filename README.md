@@ -41,7 +41,7 @@ And in the middle of that change and a sync we have made local changes in sublim
 We get a dialog asking what we want to do to resolve the conflict
 ![Alt Dialog](http://i.imgur.com/FUI0cFw.png "Dialog")
 
-Selecting _Overwrite_ will discard the changes from the server and save what we have locally instead, we will be able to continue working with the note.
+Selecting _Overwrite_ will discard overwrite the local changes with what the server has.
 
 Selecting _Cancel_ instead will leave alone the local file, if you save after this the result will most likely be a merge performed by simplenote between the local data and the remote data.
 
