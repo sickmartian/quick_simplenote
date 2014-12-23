@@ -64,7 +64,7 @@ def open_note(note, window=None):
         window = sublime.active_window()
     filepath = get_path_for_note(note)
     write_note_to_path(note, filepath)
-    window.open_file(filepath)
+    return window.open_file(filepath)
 
 def get_filename_for_note(note):
     # Take out invalid characters from title and use that as base for the name
@@ -125,17 +125,38 @@ def get_note_name(note):
 
 def handle_open_filename_change(old_file_path, updated_note):
     new_file_path = get_path_for_note(updated_note)
-    old_note_window = None
+    old_note_view = None
+    new_view = None
+    # If name changed
     if old_file_path != new_file_path:
-        old_active = sublime.active_window().active_view()
+        # Save the current active view because we might lose the focus
+        old_active_view = sublime.active_window().active_view()
+        # Search for the view of the open note
         for view_list in [window.views() for window in sublime.windows()]:
             for view in view_list:
                 if view.file_name() == old_file_path:
-                    old_note_window = window
-        if old_note_window:
-            open_note(updated_note, old_note_window)
-            close_view(view)
-        sublime.active_window().focus_view(old_active)
+                    old_note_view = view
+                    break
+        # If found
+        if old_note_view:
+            # Open the note in a new view
+            new_view = open_note(updated_note, old_note_view.window())
+            # Close the old dirty note
+            old_note_view_id = old_note_view.id()
+            old_active_view_id = old_active_view.id()
+            if old_note_view.window():
+                old_note_window_id = old_note_view.window().id()
+            else:
+                old_note_window_id = sublime.active_window() # Sometimes this happens on Sublime 2...
+            close_view(old_note_view)
+            # Focus on the new view or on the previous one depending
+            # on where we were
+            if old_note_view_id == old_active_view_id:
+                old_note_window = [window for window in sublime.windows() if window.id() == old_note_window_id]
+                if old_note_window:
+                    old_note_window[0].focus_view(new_view)
+            else:
+                sublime.active_window().focus_view(old_active_view)
         try:
             remove(old_file_path)
         except OSError as e:
