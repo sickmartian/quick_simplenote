@@ -6,8 +6,11 @@
     Python library for accessing the Simplenote API
 
     :copyright: (c) 2011 by Daniel Schauenberg
-    :ported to python 3 by sickmartian
     :license: MIT, see LICENSE for more details.
+
+    :ported to python 3 by sickmartian
+        Changed the way the tags and content fields are
+        returned, using utf-8 directly instead of bytes
 """
 
 import urllib.request, urllib.parse, urllib.error
@@ -109,11 +112,6 @@ class Simplenote(object):
         except IOError as e:
             return e, -1
         note = json.loads(response.read().decode('utf-8'))
-        # use UTF-8 encoding
-        note["content"] = note["content"]
-        # For early versions of notes, tags not always available
-        if "tags" in note:
-            note["tags"] = [t for t in note["tags"]]
         return note, 0
 
     def update_note(self, note):
@@ -130,6 +128,7 @@ class Simplenote(object):
             - status (int): 0 on sucesss and -1 otherwise
 
         """
+
         # determine whether to create a new note or updated an existing one
         if "key" in note:
             # set modification timestamp if not set by client
@@ -147,11 +146,6 @@ class Simplenote(object):
         except IOError as e:
             return e, -1
         note = json.loads(response.read().decode('utf-8'))
-        if "content" in note:
-            # use UTF-8 encoding
-            note["content"] = note["content"]
-        if "tags" in note:
-            note["tags"] = [t for t in note["tags"]]
         return note, 0
 
     def add_note(self, note):

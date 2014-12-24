@@ -1,7 +1,7 @@
 QuickSimplenote
 =============
 
-Sublime Text 2 plugin for Simplenote.
+Sublime Text plugin for Simplenote.
 
 Overview
 ---------

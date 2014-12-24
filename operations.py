@@ -4,8 +4,8 @@ import time
 
 class Operation(Thread):
 
-    def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None):
-        Thread.__init__(self, group, target, name, args, kwargs, Verbose)
+    def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, verbose=None):
+        super(Operation, self).__init__(group=group, target=target, name=name, args=args, kwargs=kwargs)
         self.callback = None
         self.exception_callback = None
 
@@ -37,8 +37,8 @@ class Operation(Thread):
         return None
 
 class NoteCreator(Operation):
-    def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, simplenote_instance=None):
-        Operation.__init__(self, group, target, name, args, kwargs, Verbose)
+    def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, verbose=None, simplenote_instance=None):
+        super(NoteCreator, self).__init__(group=group, target=target, name=name, args=args, kwargs=kwargs)
         self.simplenote_instance = simplenote_instance
 
     def run(self):
@@ -59,8 +59,8 @@ class NoteCreator(Operation):
         return self.result
 
 class NoteDownloader(Thread):
-    def __init__(self, note_id, semaphore, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, simplenote_instance=None):
-        Thread.__init__(self, group, target, name, args, kwargs, Verbose)
+    def __init__(self, note_id, semaphore, group=None, target=None, name=None, args=(), kwargs={}, verbose=None, simplenote_instance=None):
+        super(NoteDownloader, self).__init__(group=group, target=target, name=name, args=args, kwargs=kwargs)
         self.note_id = note_id
         self.semaphore = semaphore
         self.simplenote_instance = simplenote_instance
@@ -81,8 +81,8 @@ class NoteDownloader(Thread):
         
 class MultipleNoteContentDownloader(Operation):
 
-    def __init__(self, semaphore, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, simplenote_instance=None, notes=None):
-        Operation.__init__(self, group, target, name, args, kwargs, Verbose)
+    def __init__(self, semaphore, group=None, target=None, name=None, args=(), kwargs={}, verbose=None, simplenote_instance=None, notes=None):
+        super(MultipleNoteContentDownloader, self).__init__(group=group, target=target, name=name, args=args, kwargs=kwargs)
         self.notes = notes
         self.semaphore = semaphore
         self.simplenote_instance = simplenote_instance
@@ -116,8 +116,8 @@ class MultipleNoteContentDownloader(Operation):
 
 class GetNotesDelta(Operation):
 
-    def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, simplenote_instance=None):
-        Operation.__init__(self, group, target, name, args, kwargs, Verbose)
+    def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, verbose=None, simplenote_instance=None):
+        super(GetNotesDelta, self).__init__(group=group, target=target, name=name, args=args, kwargs=kwargs)
         self.note_resume = []
         self.simplenote_instance = simplenote_instance
 
@@ -139,8 +139,8 @@ class GetNotesDelta(Operation):
         return 'QuickSimplenote: Downloading note list'
 
 class NoteDeleter(Operation):
-    def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, note=None, simplenote_instance=None):
-        Operation.__init__(self, group, target, name, args, kwargs, Verbose)
+    def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, verbose=None, note=None, simplenote_instance=None):
+        super(NoteDeleter, self).__init__(group=group, target=target, name=name, args=args, kwargs=kwargs)
         self.note = note
         self.simplenote_instance = simplenote_instance
 
@@ -162,8 +162,8 @@ class NoteDeleter(Operation):
         return self.result
 
 class NoteUpdater(Operation):
-    def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None, note=None, simplenote_instance=None):
-        Operation.__init__(self, group, target, name, args, kwargs, Verbose)
+    def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, verbose=None, note=None, simplenote_instance=None):
+        super(NoteUpdater, self).__init__(group=group, target=target, name=name, args=args, kwargs=kwargs)
         self.note = note
         self.simplenote_instance = simplenote_instance
 
