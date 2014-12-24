@@ -7,10 +7,6 @@
 
     :copyright: (c) 2011 by Daniel Schauenberg
     :license: MIT, see LICENSE for more details.
-
-    :ported to python 3 by sickmartian
-        Changed the way the tags and content fields are
-        returned, using utf-8 directly instead of bytes
 """
 
 import urllib.request, urllib.parse, urllib.error
@@ -128,7 +124,6 @@ class Simplenote(object):
             - status (int): 0 on sucesss and -1 otherwise
 
         """
-
         # determine whether to create a new note or updated an existing one
         if "key" in note:
             # set modification timestamp if not set by client
@@ -139,7 +134,7 @@ class Simplenote(object):
                                                       self.get_token(), self.username)
         else:
             url = '{0}?auth={1}&email={2}'.format(DATA_URL, self.get_token(), self.username)
-        request = urllib.request.Request(url, json.dumps(note).encode('utf-8'))
+        request = urllib.request.Request(url, urllib.parse.quote(json.dumps(note)).encode('utf-8'))
         response = ""
         try:
             response = urllib.request.urlopen(request)
@@ -166,6 +161,7 @@ class Simplenote(object):
             - status (int): 0 on sucesss and -1 otherwise
 
         """
+
         if type(note) == str:
             return self.update_note({"content": note})
         elif (type(note) == dict) and "content" in note:
@@ -207,10 +203,9 @@ class Simplenote(object):
         if since is not None:
             try:
                 sinceUT = time.mktime(datetime.datetime.strptime(since, "%Y-%m-%d").timetuple())
-                params += '&since=%s' % sinceUT
+                params += '&since={0}'.format(sinceUT)
             except ValueError:
                 pass
-
         # perform initial HTTP request
         try:
             request = urllib.request.Request(INDX_URL+params)
@@ -218,11 +213,9 @@ class Simplenote(object):
             notes["data"].extend(response["data"])
         except IOError:
             status = -1
-
         # get additional notes if bookmark was set in response
         while "mark" in response:
-            vals = (self.get_token(), self.username, response["mark"], NOTE_FETCH_LENGTH)
-            params = 'auth=%s&email=%s&mark=%s&length=%s' % vals
+            params = 'auth={0}&email={1}&mark={2}&length={3}'.format(self.get_token(), self.username, response["mark"], NOTE_FETCH_LENGTH)
             if since is not None:
                 try:
                     sinceUT = time.mktime(datetime.datetime.strptime(since, "%Y-%m-%d").timetuple())
@@ -233,7 +226,7 @@ class Simplenote(object):
             # perform the actual HTTP request
             try:
                 request = urllib.request.Request(INDX_URL+params)
-                response = json.loads(urllib.request.urlopen(request).read())
+                response = json.loads(urllib.request.urlopen(request).read().decode('utf-8'))
                 notes["data"].extend(response["data"])
             except IOError:
                 status = -1
