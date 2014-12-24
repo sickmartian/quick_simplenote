@@ -1,5 +1,5 @@
 import sublime, sublime_plugin
-from simplenote import Simplenote
+from .simplenote import Simplenote
 
 import functools
 import time
@@ -9,7 +9,7 @@ from os import path, makedirs, remove, listdir
 from datetime import datetime
 from threading import Semaphore, Lock
 
-from operations import NoteCreator, MultipleNoteContentDownloader, GetNotesDelta, NoteDeleter, NoteUpdater
+from .operations import NoteCreator, MultipleNoteContentDownloader, GetNotesDelta, NoteDeleter, NoteUpdater
 
 def cmp_to_key(mycmp):
     'Convert a cmp= function into a key= function'
@@ -38,7 +38,7 @@ def sort_notes(a_note, b_note):
     else:
         date_a = datetime.fromtimestamp(float(a_note['modifydate']))
         date_b = datetime.fromtimestamp(float(b_note['modifydate']))
-        return cmp(date_a, date_b)
+        return (date_a > date_b) - (date_a < date_b)
 
 def show_message(message):
     if not message:
@@ -54,7 +54,7 @@ def write_note_to_path(note, filepath):
     f = open(filepath, 'wb')
     try:
         content = note['content']
-        f.write(content)
+        f.write(content.encode('utf-8'))
     except KeyError:
         pass
     f.close()
@@ -96,7 +96,7 @@ def get_note_from_path(view_filepath):
             note = [note for note in notes if get_filename_for_note(note) == note_filename]
             if not note:
                 import re
-                pattern = re.compile(ur'\((.*?)\)')
+                pattern = re.compile(r'\((.*?)\)')
                 results = re.findall(pattern, note_filename)
                 if results:
                     noteKey = results[ len(results) - 1]
@@ -110,7 +110,7 @@ def get_note_from_path(view_filepath):
 def get_note_name(note):
     try:
         content = note['content']
-    except Exception, e:
+    except Exception as e:
         return 'untitled'
     index = content.find('\n');
     if index > -1:
@@ -120,7 +120,6 @@ def get_note_name(note):
             title = content
         else:
             title = 'untitled'
-    title = title.decode('utf-8')
     return title
 
 def handle_open_filename_change(old_file_path, updated_note):
@@ -186,7 +185,7 @@ def load_notes():
     notes = []
     try:
         with open(path.join(package_path, 'note_cache'),'rb') as cache_file:
-            notes = pickle.load(cache_file)
+            notes = pickle.load(cache_file, encoding='utf-8')
     except (EOFError, IOError) as e:
         pass
     return notes
@@ -295,7 +294,7 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
             sublime.set_timeout(flush_saves, debounce_time)
 
     def get_current_content(self, view):
-        return view.substr(sublime.Region(0, view.size())).encode('utf-8')
+        return view.substr(sublime.Region(0, view.size()))
 
     def handle_note_changed(self, modified_note_resume, content, old_file_path, open_view):
         global notes
@@ -610,25 +609,28 @@ def reload_if_needed():
         sublime.set_timeout(start, 2000) # I know...
         print('QuickSimplenote: Autostarting')
 
+def plugin_loaded():
+    global package_path, temp_path, settings, notes
+    package_path = path.join(sublime.packages_path(), "QuickSimplenote")
+    temp_path = path.join(package_path, "temp")
+
+    notes = load_notes()
+    note_files = [note['filename'] for note in notes]
+    if not path.exists(temp_path):
+        makedirs(temp_path)
+    for f in listdir(temp_path):
+        if f not in note_files:
+            remove(path.join(temp_path, f))
+
+    settings = sublime.load_settings('quick_simplenote.sublime-settings')
+    settings.clear_on_change('username')
+    settings.clear_on_change('password')
+    settings.add_on_change('username', reload_if_needed)
+    settings.add_on_change('password', reload_if_needed)
+
+    reload_if_needed()
+
 reload_calls = -1
 simplenote_instance = None
 started = False
 notes = []
-package_path = path.join(sublime.packages_path(), "QuickSimplenote")
-temp_path = path.join(package_path, "temp")
-
-notes = load_notes()
-note_files = [note['filename'] for note in notes]
-if not path.exists(temp_path):
-    makedirs(temp_path)
-for f in listdir(temp_path):
-    if f not in note_files:
-        remove(path.join(temp_path, f))
-
-settings = sublime.load_settings('quick_simplenote.sublime-settings')
-settings.clear_on_change('username')
-settings.clear_on_change('password')
-settings.add_on_change('username', reload_if_needed)
-settings.add_on_change('password', reload_if_needed)
-
-reload_if_needed()
