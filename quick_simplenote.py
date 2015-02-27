@@ -192,8 +192,8 @@ def load_notes():
     return notes
 
 def save_notes(notes):
-    cache_file = open(path.join(package_path, 'note_cache'),'w+b')
-    pickle.dump(notes, cache_file)
+    with open(path.join(package_path, 'note_cache'),'w+b') as cache_file:
+        pickle.dump(notes, cache_file)
 
 class OperationManager:
     _instance = None
