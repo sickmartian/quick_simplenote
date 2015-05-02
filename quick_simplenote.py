@@ -295,7 +295,13 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
             sublime.set_timeout(flush_saves, debounce_time)
 
     def get_current_content(self, view):
-        return view.substr(sublime.Region(0, view.size())).encode('utf-8')
+        note_file_content = ""
+        try:
+            with open(view.file_name(),'r') as content_file:
+                note_file_content = content_file.read()
+        except (EOFError, IOError) as e:
+            pass
+        return note_file_content
 
     def handle_note_changed(self, modified_note_resume, content, old_file_path, open_view):
         global notes
