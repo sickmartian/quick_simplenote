@@ -1,0 +1,92 @@
+[
+    {
+        "caption": "Preferences",
+        "id": "preferences",
+        "mnemonic": "n",
+        "children":
+        [
+            {
+                "caption": "Package Settings",
+                "id": "package-settings",
+                "mnemonic": "P",
+                "children":
+                [
+                    {
+                        "caption": "QuickSimplenote",
+                        "children":
+                        [
+                            {
+                                "args": {
+                                    "file": "${packages}/QuickSimplenote/README.md"
+                                },
+                                "caption": "README",
+                                "command": "open_file"
+                            },
+                            { "caption": "-" },
+                            {
+                                "command": "open_file",
+                                "args": {"file": "${packages}/QuickSimplenote/quick_simplenote.sublime-settings"},
+                                "caption": "Settings – Default"
+                            },
+                            {
+                                "command": "open_file",
+                                "args": {"file": "${packages}/User/quick_simplenote.sublime-settings"},
+                                "caption": "Settings – User"
+                            },
+                            { "caption": "-" },
+                            {
+                                "args": {
+                                    "file": "${packages}/QuickSimplenote/Default (Windows).sublime-keymap",
+                                    "platform": "Windows"
+                                },
+                                "caption": "Key Bindings \u2013 Default",
+                                "command": "open_file"
+                            },
+                            {
+                                "args": {
+                                    "file": "${packages}/QuickSimplenote/Default (OSX).sublime-keymap",
+                                    "platform": "OSX"
+                                },
+                                "caption": "Key Bindings \u2013 Default",
+                                "command": "open_file"
+                            },
+                            {
+                                "args": {
+                                    "file": "${packages}/QuickSimplenote/Default (Linux).sublime-keymap",
+                                    "platform": "Linux"
+                                },
+                                "caption": "Key Bindings \u2013 Default",
+                                "command": "open_file"
+                            },
+                            {
+                                "args": {
+                                    "file": "${packages}/User/Default (Windows).sublime-keymap",
+                                    "platform": "Windows"
+                                },
+                                "caption": "Key Bindings \u2013 User",
+                                "command": "open_file"
+                            },
+                            {
+                                "args": {
+                                    "file": "${packages}/User/Default (OSX).sublime-keymap",
+                                    "platform": "OSX"
+                                },
+                                "caption": "Key Bindings \u2013 User",
+                                "command": "open_file"
+                            },
+                            {
+                                "args": {
+                                    "file": "${packages}/User/Default (Linux).sublime-keymap",
+                                    "platform": "Linux"
+                                },
+                                "caption": "Key Bindings \u2013 User",
+                                "command": "open_file"
+                            },
+                            { "caption": "-" }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]
