@@ -104,7 +104,7 @@ def get_note_from_path(view_filepath):
             if note:
                 note = note[0]
 
-    
+
     return note
 
 def get_note_name(note):
@@ -294,6 +294,13 @@ class HandleNoteViewCommand(sublime_plugin.EventListener):
                 HandleNoteViewCommand.waiting_to_save.append(new_entry)
             sublime.set_timeout(flush_saves, debounce_time)
 
+    def on_load(self, view):
+        view_filepath = view.file_name()
+        note = get_note_from_path(view_filepath)
+        syntax = settings.get('note_syntax')
+        if note and syntax:
+           view.set_syntax_file(syntax)
+
     def get_current_content(self, view):
         note_file_content = ""
         try:
@@ -433,7 +440,7 @@ class StartQuickSimplenoteSyncCommand(sublime_plugin.ApplicationCommand):
             for view in view_list:
                 if view.file_name() == None:
                     continue
-                
+
                 if view.is_dirty():
                     open_files_dirty.append(path.split(view.file_name())[1])
                 else:
@@ -447,13 +454,13 @@ class StartQuickSimplenoteSyncCommand(sublime_plugin.ApplicationCommand):
 
             if not note['needs_update']:
                 continue
-            
+
             try:
                 filename = note['filename']
             except KeyError as e:
                 others.append(note)
                 continue
-            
+
             if filename in open_files_dirty:
                 lu.append(note)
             elif filename in open_files_ok:

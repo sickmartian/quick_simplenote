@@ -5,6 +5,13 @@
 	"username": ""
     ,"password": ""
     // --------------------------------
+    // Simplenote Synctax setting:
+    // (If you are using MarkdownEditing, try
+    //  "note_syntax": "Packages/MarkdownEditing/Markdown.tmLanguage"
+    // )
+    // --------------------------------
+    ,"note_syntax": ""
+    // --------------------------------
     // Sync settings:
     // --------------------------------
     // Sync when sublime text starts:
@@ -32,5 +39,5 @@
     	// "title_regex": "\\[ST\\]",
     	// "extension": "todo"
     // }]
-    
+
 }
