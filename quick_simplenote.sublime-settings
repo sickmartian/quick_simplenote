@@ -5,7 +5,7 @@
 	"username": ""
     ,"password": ""
     // --------------------------------
-    // Simplenote Synctax setting:
+    // QuickSimplenote global syntax setting:
     // (If you are using MarkdownEditing, try
     //  "note_syntax": "Packages/MarkdownEditing/Markdown.tmLanguage"
     // )
