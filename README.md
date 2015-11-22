@@ -60,6 +60,8 @@ A small value might start making simplenote reject changes and a big value might
 Each row of the array takes a regex that the plugin uses against the note title and an extension to add at the end.
 ![Alt Plaintasks use](http://i.imgur.com/VgGOlLf.png "Plaintasks use")
 
+**note_syntax** is a property that accepts a sublime syntax file (e.g. "Packages/Java/Java.tmLanguage" or "Packages/MarkdownEditing/Markdown.tmLanguage" if you have MarkdownEditing installed) and makes all notes start with this syntax, so if you use Simplenote just for Java files or you want all your notes in Markdown this can help.
+
 About your data and bugs
 ---------
 This is a free piece of software and is distributed as is, it might contain bugs that due to the nature of the application might result in data loss, please make periodic backups of any important piece of information.
