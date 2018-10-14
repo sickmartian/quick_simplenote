@@ -35,6 +35,7 @@ Conflict Resolution
 ---------
 If a change is made on a different client
 ![Alt Remote change](http://i.imgur.com/WjRAccA.png "Remote change")
+
 And in the middle of that change and a sync we have made local changes in sublime
 ![Alt Local change](http://i.imgur.com/8YRoAmt.png "Local change")
 
@@ -57,6 +58,7 @@ A small value might start making simplenote reject changes and a big value might
 
 **title_extension_map** is an array used to apply extensions to the temporal note files, so it can interact with other extensions, most notably plaintasks:
 ![Alt Plaintasks configuration](http://i.imgur.com/EbVj4Ul.png "Plaintasks configuration")
+
 Each row of the array takes a regex that the plugin uses against the note title and an extension to add at the end.
 ![Alt Plaintasks use](http://i.imgur.com/VgGOlLf.png "Plaintasks use")
 
